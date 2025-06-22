@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stopwatch & Timer - Precision Time Tracking</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .timer-display {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .shake {
+            animation: shake 0.5s infinite;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 to-blue-100 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const StopwatchTimer = () => {
+            // Stopwatch state
+            const [stopwatchTime, setStopwatchTime] = useState(0);
+            const [stopwatchRunning, setStopwatchRunning] = useState(false);
+            const [laps, setLaps] = useState([]);
+
+            // Timer state
+            const [timerMinutes, setTimerMinutes] = useState(5);
+            const [timerSeconds, setTimerSeconds] = useState(0);
+            const [timerTime, setTimerTime] = useState(0);
+            const [timerRunning, setTimerRunning] = useState(false);
+            const [timerFinished, setTimerFinished] = useState(false);
+
+            // UI state
+            const [activeTab, setActiveTab] = useState('stopwatch');
+            const [sessions, setSessions] = useState([]);
+
+            // Refs
+            const stopwatchIntervalRef = useRef(null);
+            const timerIntervalRef = useRef(null);
+            const audioRef = useRef(null);
+
+            // Load sessions from localStorage
+            useEffect(() => {
+                const savedSessions = localStorage.getItem('timerSessions');
+                if (savedSessions) {
+                    setSessions(JSON.parse(savedSessions));
+                }
+            }, []);
+
+            // Save sessions to localStorage
+            useEffect(() => {
+                localStorage.setItem('timerSessions', JSON.stringify(sessions));
+            }, [sessions]);
+
+            // Stopwatch effect
+            useEffect(() => {
+                if (stopwatchRunning) {
+                    stopwatchIntervalRef.current = setInterval(() => {
+                        setStopwatchTime(prev => prev + 10);
+                    }, 10);
+                } else {
+                    clearInterval(stopwatchIntervalRef.current);
+                }
+
+                return () => clearInterval(stopwatchIntervalRef.current);
+            }, [stopwatchRunning]);
+
+            // Timer effect
+            useEffect(() => {
+                if (timerRunning && timerTime > 0) {
+                    timerIntervalRef.current = setInterval(() => {
+                        setTimerTime(prev => {
+                            if (prev <= 100) {
+                                setTimerRunning(false);
+                                setTimerFinished(true);
+                                playAlarm();
+                                saveSession('timer', prev / 1000);
+                                return 0;
+                            }
+                            return prev - 100;
+                        });
+                    }, 100);
+                } else {
+                    clearInterval(timerIntervalRef.current);
+                }
+
+                return () => clearInterval(timerIntervalRef.current);
+            }, [timerRunning, timerTime]);
+
+            // Format time display
+            const formatTime = (milliseconds) => {
+                const totalSeconds = Math.floor(milliseconds / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                const ms = Math.floor((milliseconds % 1000) / 10);
+                
+                return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+            };
+
+            // Format timer display
+            const formatTimerTime = (milliseconds) => {
+                const totalSeconds = Math.floor(milliseconds / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                
+                return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            };
+
+            // Stopwatch controls
+            const startStopwatch = () => {
+                setStopwatchRunning(true);
+            };
+
+            const pauseStopwatch = () => {
+                setStopwatchRunning(false);
+            };
+
+            const resetStopwatch = () => {
+                setStopwatchRunning(false);
+                saveSession('stopwatch', stopwatchTime / 1000);
+                setStopwatchTime(0);
+                setLaps([]);
+            };
+
+            const addLap = () => {
+                if (stopwatchTime > 0) {
+                    const lapTime = stopwatchTime;
+                    const lapNumber = laps.length + 1;
+                    const previousLapTime = laps.length > 0 ? laps[laps.length - 1].time : 0;
+                    const splitTime = lapTime - previousLapTime;
+                    
+                    setLaps(prev => [...prev, {
+                        id: Date.now(),
+                        number: lapNumber,
+                        time: lapTime,
+                        split: splitTime,
+                        timestamp: new Date().toISOString()
+                    }]);
+                }
+            };
+
+            // Timer controls
+            const startTimer = () => {
+                if (timerTime === 0) {
+                    const totalMs = (timerMinutes * 60 + timerSeconds) * 1000;
+                    setTimerTime(totalMs);
+                }
+                setTimerRunning(true);
+                setTimerFinished(false);
+            };
+
+            const pauseTimer = () => {
+                setTimerRunning(false);
+            };
+
+            const resetTimer = () => {
+                setTimerRunning(false);
+                setTimerTime(0);
+                setTimerFinished(false);
+            };
+
+            // Play alarm sound
+            const playAlarm = () => {
+                try {
+                    // Create audio context for web audio API
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.5);
+                    
+                    // Repeat the sound 3 times
+                    setTimeout(() => {
+                        const osc2 = audioContext.createOscillator();
+                        const gain2 = audioContext.createGain();
+                        osc2.connect(gain2);
+                        gain2.connect(audioContext.destination);
+                        osc2.frequency.setValueAtTime(800, audioContext.currentTime);
+                        gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
+                        osc2.start();
+                        osc2.stop(audioContext.currentTime + 0.5);
+                    }, 600);
+                } catch (error) {
+                    console.log('Audio not supported');
+                }
+            };
+
+            // Save session
+            const saveSession = (type, duration) => {
+                if (duration > 1) { // Only save sessions longer than 1 second
+                    const session = {
+                        id: Date.now(),
+                        type: type,
+                        duration: duration,
+                        timestamp: new Date().toISOString(),
+                        laps: type === 'stopwatch' ? laps.length : 0
+                    };
+                    setSessions(prev => [session, ...prev.slice(0, 49)]); // Keep last 50 sessions
+                }
+            };
+
+            // Quick timer presets
+            const timerPresets = [
+                { label: '1 min', minutes: 1, seconds: 0 },
+                { label: '5 min', minutes: 5, seconds: 0 },
+                { label: '10 min', minutes: 10, seconds: 0 },
+                { label: '15 min', minutes: 15, seconds: 0 },
+                { label: '25 min', minutes: 25, seconds: 0 },
+                { label: '30 min', minutes: 30, seconds: 0 }
+            ];
+
+            // Calculate timer progress
+            const timerProgress = timerTime > 0 ? ((timerMinutes * 60 + timerSeconds) * 1000 - timerTime) / ((timerMinutes * 60 + timerSeconds) * 1000) * 100 : 0;
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 py-8 px-4">
+                    <div className="max-w-4xl mx-auto">
+                        {/* Header */}
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold text-indigo-700 mb-2">
+                                ⏱️ Stopwatch & Timer
+                            </h1>
+                            <p className="text-indigo-600 text-lg">
+                                Precision time tracking for productivity and sports
+                            </p>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="bg-white rounded-xl shadow-lg mb-8">
+                            <div className="border-b border-gray-200">
+                                <div className="flex">
+                                    {['stopwatch', 'timer', 'history'].map((tab) => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setActiveTab(tab)}
+                                            className={`flex-1 py-4 px-6 font-medium transition-colors ${
+                                                activeTab === tab
+                                                    ? 'bg-indigo-500 text-white'
+                                                    : 'text-gray-600 hover:bg-gray-50'
+                                            } ${tab === 'stopwatch' ? 'rounded-tl-xl' : ''} ${tab === 'history' ? 'rounded-tr-xl' : ''}`}
+                                        >
+                                            {tab === 'stopwatch' && '⏱️ Stopwatch'}
+                                            {tab === 'timer' && '⏰ Timer'}
+                                            {tab === 'history' && '📊 History'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="p-8">
+                                {/* Stopwatch Tab */}
+                                {activeTab === 'stopwatch' && (
+                                    <div className="text-center">
+                                        {/* Stopwatch Display */}
+                                        <div className="mb-8">
+                                            <div className={`timer-display text-6xl md:text-8xl font-bold text-indigo-600 mb-4 ${stopwatchRunning ? 'pulse' : ''}`}>
+                                                {formatTime(stopwatchTime)}
+                                            </div>
+                                            <div className="text-gray-500 text-lg">
+                                                {stopwatchRunning ? 'Running' : stopwatchTime > 0 ? 'Paused' : 'Ready'}
+                                            </div>
+                                        </div>
+
+                                        {/* Stopwatch Controls */}
+                                        <div className="flex justify-center gap-4 mb-8">
+                                            {!stopwatchRunning ? (
+                                                <button
+                                                    onClick={startStopwatch}
+                                                    className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg"
+                                                >
+                                                    ▶️ Start
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={pauseStopwatch}
+                                                    className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg"
+                                                >
+                                                    ⏸️ Pause
+                                                </button>
+                                            )}
+                                            
+                                            <button
+                                                onClick={addLap}
+                                                disabled={stopwatchTime === 0}
+                                                className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg"
+                                            >
+                                                🏁 Lap
+                                            </button>
+                                            
+                                            <button
+                                                onClick={resetStopwatch}
+                                                disabled={stopwatchTime === 0}
+                                                className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg"
+                                            >
+                                                🔄 Reset
+                                            </button>
+                                        </div>
+
+                                        {/* Laps */}
+                                        {laps.length > 0 && (
+                                            <div className="bg-gray-50 rounded-xl p-6">
+                                                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                                    Laps ({laps.length})
+                                                </h3>
+                                                <div className="max-h-64 overflow-y-auto">
+                                                    <div className="space-y-2">
+                                                        {laps.slice().reverse().map((lap) => (
+                                                            <div
+                                                                key={lap.id}
+                                                                className="flex justify-between items-center p-3 bg-white rounded-lg border"
+                                                            >
+                                                                <span className="font-medium text-gray-700">
+                                                                    Lap {lap.number}
+                                                                </span>
+                                                                <div className="text-right">
+                                                                    <div className="timer-display font-bold text-indigo-600">
+                                                                        {formatTime(lap.time)}
+                                                                    </div>
+                                                                    <div className="text-sm text-gray-500">
+                                                                        +{formatTime(lap.split)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Timer Tab */}
+                                {activeTab === 'timer' && (
+                                    <div className="text-center">
+                                        {/* Timer Display */}
+                                        <div className="mb-8">
+                                            {timerTime > 0 && (
+                                                <div className="mb-4">
+                                                    <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
+                                                        <div 
+                                                            className="bg-indigo-500 h-4 rounded-full transition-all duration-100"
+                                                            style={{ width: `${timerProgress}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            <div className={`timer-display text-6xl md:text-8xl font-bold text-indigo-600 mb-4 ${
+                                                timerRunning ? 'pulse' : ''
+                                            } ${timerFinished ? 'shake text-red-500' : ''}`}>
+                                                {timerTime > 0 ? formatTimerTime(timerTime) : formatTimerTime((timerMinutes * 60 + timerSeconds) * 1000)}
+                                            </div>
+                                            
+                                            <div className="text-gray-500 text-lg">
+                                                {timerFinished ? '🔔 Time\'s Up!' : 
+                                                 timerRunning ? 'Running' : 
+                                                 timerTime > 0 ? 'Paused' : 'Set Timer'}
+                                            </div>
+                                        </div>
+
+                                        {/* Timer Setup */}
+                                        {!timerRunning && timerTime === 0 && (
+                                            <div className="mb-8">
+                                                <div className="grid grid-cols-2 gap-4 mb-6 max-w-md mx-auto">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            Minutes
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            value={timerMinutes}
+                                                            onChange={(e) => setTimerMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-center timer-display text-xl"
+                                                            min="0"
+                                                            max="60"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            Seconds
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            value={timerSeconds}
+                                                            onChange={(e) => setTimerSeconds(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-center timer-display text-xl"
+                                                            min="0"
+                                                            max="59"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Quick Presets */}
+                                                <div className="mb-6">
+                                                    <div className="text-sm font-medium text-gray-700 mb-3">Quick Presets:</div>
+                                                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                                                        {timerPresets.map((preset) => (
+                                                            <button
+                                                                key={preset.label}
+                                                                onClick={() => {
+                                                                    setTimerMinutes(preset.minutes);
+                                                                    setTimerSeconds(preset.seconds);
+                                                                }}
+                                                                className="bg-gray-100 hover:bg-indigo-100 text-gray-800 hover:text-indigo-800 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+                                                            >
+                                                                {preset.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Timer Controls */}
+                                        <div className="flex justify-center gap-4">
+                                            {!timerRunning ? (
+                                                <button
+                                                    onClick={startTimer}
+                                                    disabled={timerMinutes === 0 && timerSeconds === 0 && timerTime === 0}
+                                                    className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg"
+                                                >
+                                                    ▶️ Start
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={pauseTimer}
+                                                    className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg"
+                                                >
+                                                    ⏸️ Pause
+                                                </button>
+                                            )}
+                                            
+                                            <button
+                                                onClick={resetTimer}
+                                                disabled={timerTime === 0 && !timerFinished}
+                                                className="bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg"
+                                            >
+                                                🔄 Reset
+                                            </button>
+                                        </div>
+
+                                        {/* Finished Alert */}
+                                        {timerFinished && (
+                                            <div className="mt-8 bg-red-50 border border-red-200 rounded-xl p-6">
+                                                <div className="text-red-600 text-xl font-bold mb-2">
+                                                    ⏰ Timer Finished!
+                                                </div>
+                                                <p className="text-red-700">
+                                                    Your timer has completed. Click reset to set a new timer.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* History Tab */}
+                                {activeTab === 'history' && (
+                                    <div>
+                                        <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+                                            📊 Session History
+                                        </h3>
+                                        
+                                        {sessions.length === 0 ? (
+                                            <div className="text-center py-8 text-gray-500">
+                                                <div className="text-4xl mb-2">📈</div>
+                                                <p>No sessions recorded yet</p>
+                                                <p className="text-sm">Start using the stopwatch or timer to track your sessions!</p>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                {/* Stats */}
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 text-center border border-blue-200">
+                                                        <div className="text-2xl font-bold text-blue-600">{sessions.length}</div>
+                                                        <div className="text-sm text-gray-600">Total Sessions</div>
+                                                    </div>
+                                                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 text-center border border-green-200">
+                                                        <div className="text-2xl font-bold text-green-600">
+                                                            {sessions.filter(s => s.type === 'stopwatch').length}
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">Stopwatch</div>
+                                                    </div>
+                                                    <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl p-4 text-center border border-purple-200">
+                                                        <div className="text-2xl font-bold text-purple-600">
+                                                            {sessions.filter(s => s.type === 'timer').length}
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">Timer</div>
+                                                    </div>
+                                                    <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-4 text-center border border-orange-200">
+                                                        <div className="text-2xl font-bold text-orange-600">
+                                                            {Math.round(sessions.reduce((sum, s) => sum + s.duration, 0) / 60)}m
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">Total Time</div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Sessions List */}
+                                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                                    {sessions.map((session) => (
+                                                        <div
+                                                            key={session.id}
+                                                            className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border"
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-2xl">
+                                                                    {session.type === 'stopwatch' ? '⏱️' : '⏰'}
+                                                                </span>
+                                                                <div>
+                                                                    <div className="font-medium text-gray-800 capitalize">
+                                                                        {session.type}
+                                                                    </div>
+                                                                    <div className="text-sm text-gray-500">
+                                                                        {new Date(session.timestamp).toLocaleString()}
+                                                                        {session.laps > 0 && ` • ${session.laps} laps`}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="timer-display font-bold text-indigo-600">
+                                                                    {session.duration < 60 
+                                                                        ? `${session.duration.toFixed(1)}s`
+                                                                        : `${Math.floor(session.duration / 60)}m ${(session.duration % 60).toFixed(0)}s`
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Clear History */}
+                                                <div className="text-center mt-6">
+                                                    <button
+                                                        onClick={() => {
+                                                            if (confirm('Are you sure you want to clear all session history?')) {
+                                                                setSessions([]);
+                                                            }
+                                                        }}
+                                                        className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                                                    >
+                                                        Clear History
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="text-center mt-8">
+                            <p className="text-sm text-gray-500">
+                                Built with React & Web Audio API • Precision Time Tracking
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<StopwatchTimer />, document.getElementById('root'));
+    </script>
+</body>
+</html> 
