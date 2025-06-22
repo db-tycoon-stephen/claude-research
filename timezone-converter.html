@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timezone Converter - Global Time Coordination</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .time-display {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+        }
+        .timezone-card {
+            transition: all 0.3s ease;
+        }
+        .timezone-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-cyan-50 to-blue-100 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const TimezoneConverter = () => {
+            const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+            const [selectedTime, setSelectedTime] = useState(new Date().toTimeString().slice(0, 5));
+            const [sourceTimezone, setSourceTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
+            const [currentTime, setCurrentTime] = useState(new Date());
+
+            // Popular timezones
+            const popularTimezones = [
+                { value: 'America/New_York', label: 'New York (EST/EDT)', city: 'New York', country: 'USA' },
+                { value: 'America/Los_Angeles', label: 'Los Angeles (PST/PDT)', city: 'Los Angeles', country: 'USA' },
+                { value: 'America/Chicago', label: 'Chicago (CST/CDT)', city: 'Chicago', country: 'USA' },
+                { value: 'Europe/London', label: 'London (GMT/BST)', city: 'London', country: 'UK' },
+                { value: 'Europe/Paris', label: 'Paris (CET/CEST)', city: 'Paris', country: 'France' },
+                { value: 'Europe/Berlin', label: 'Berlin (CET/CEST)', city: 'Berlin', country: 'Germany' },
+                { value: 'Asia/Tokyo', label: 'Tokyo (JST)', city: 'Tokyo', country: 'Japan' },
+                { value: 'Asia/Shanghai', label: 'Shanghai (CST)', city: 'Shanghai', country: 'China' },
+                { value: 'Asia/Kolkata', label: 'Mumbai (IST)', city: 'Mumbai', country: 'India' },
+                { value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)', city: 'Sydney', country: 'Australia' },
+                { value: 'Pacific/Auckland', label: 'Auckland (NZST/NZDT)', city: 'Auckland', country: 'New Zealand' },
+                { value: 'America/Sao_Paulo', label: 'São Paulo (BRT)', city: 'São Paulo', country: 'Brazil' }
+            ];
+
+            // Update current time every second
+            useEffect(() => {
+                const timer = setInterval(() => {
+                    setCurrentTime(new Date());
+                }, 1000);
+                return () => clearInterval(timer);
+            }, []);
+
+            // Convert time from source timezone to target timezone
+            const convertTime = (targetTimezone) => {
+                const sourceDateTime = new Date(`${selectedDate}T${selectedTime}:00`);
+                
+                // Create a date in the source timezone
+                const sourceDate = new Date(sourceDateTime.toLocaleString("en-US", {timeZone: sourceTimezone}));
+                const offset = sourceDateTime.getTime() - sourceDate.getTime();
+                const adjustedDate = new Date(sourceDateTime.getTime() + offset);
+                
+                // Convert to target timezone
+                const targetDate = new Date(adjustedDate.toLocaleString("en-US", {timeZone: targetTimezone}));
+                return new Date(adjustedDate.getTime() + (adjustedDate.getTime() - targetDate.getTime()));
+            };
+
+            // Format time for display
+            const formatTime = (date, timezone) => {
+                try {
+                    return {
+                        time: date.toLocaleTimeString('en-US', {
+                            timeZone: timezone,
+                            hour12: false,
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }),
+                        time12: date.toLocaleTimeString('en-US', {
+                            timeZone: timezone,
+                            hour12: true,
+                            hour: 'numeric',
+                            minute: '2-digit'
+                        }),
+                        date: date.toLocaleDateString('en-US', {
+                            timeZone: timezone,
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                        })
+                    };
+                } catch (error) {
+                    return { time: 'Invalid', time12: 'Invalid', date: 'Invalid' };
+                }
+            };
+
+            // Get timezone abbreviation
+            const getTimezoneAbbr = (timezone) => {
+                try {
+                    const date = new Date();
+                    const formatter = new Intl.DateTimeFormat('en-US', {
+                        timeZone: timezone,
+                        timeZoneName: 'short'
+                    });
+                    const parts = formatter.formatToParts(date);
+                    return parts.find(part => part.type === 'timeZoneName')?.value || '';
+                } catch (error) {
+                    return '';
+                }
+            };
+
+            // Set to current time
+            const setToCurrentTime = () => {
+                const now = new Date();
+                setSelectedDate(now.toISOString().split('T')[0]);
+                setSelectedTime(now.toTimeString().slice(0, 5));
+            };
+
+            // Reset to user's timezone
+            const resetToLocal = () => {
+                setSourceTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-100 py-8 px-4">
+                    <div className="max-w-6xl mx-auto">
+                        {/* Header */}
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold text-cyan-700 mb-2">
+                                🌍 Timezone Converter
+                            </h1>
+                            <p className="text-cyan-600 text-lg">
+                                Coordinate across time zones effortlessly
+                            </p>
+                        </div>
+
+                        {/* Current Time Display */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+                            <div className="text-center">
+                                <h2 className="text-lg font-semibold text-gray-800 mb-4">Current Local Time</h2>
+                                <div className="time-display text-4xl font-bold text-cyan-600 mb-2">
+                                    {currentTime.toLocaleTimeString()}
+                                </div>
+                                <div className="text-gray-600">
+                                    {currentTime.toLocaleDateString('en-US', { 
+                                        weekday: 'long', 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                    })}
+                                </div>
+                                <div className="text-sm text-gray-500 mt-2">
+                                    {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Time Input Controls */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+                            <h3 className="text-xl font-semibold text-gray-800 mb-6">Convert Time</h3>
+                            
+                            <div className="grid md:grid-cols-3 gap-6">
+                                {/* Date Input */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                                    />
+                                </div>
+
+                                {/* Time Input */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Time
+                                    </label>
+                                    <input
+                                        type="time"
+                                        value={selectedTime}
+                                        onChange={(e) => setSelectedTime(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent time-display"
+                                    />
+                                </div>
+
+                                {/* Source Timezone */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        From Timezone
+                                    </label>
+                                    <select
+                                        value={sourceTimezone}
+                                        onChange={(e) => setSourceTimezone(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                                    >
+                                        {popularTimezones.map((tz) => (
+                                            <option key={tz.value} value={tz.value}>
+                                                {tz.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Quick Actions */}
+                            <div className="flex flex-wrap gap-3 mt-6">
+                                <button
+                                    onClick={setToCurrentTime}
+                                    className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                                >
+                                    Use Current Time
+                                </button>
+                                <button
+                                    onClick={resetToLocal}
+                                    className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                                >
+                                    Reset to Local
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Timezone Grid */}
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {popularTimezones.map((timezone) => {
+                                const convertedTime = convertTime(timezone.value);
+                                const formatted = formatTime(convertedTime, timezone.value);
+                                const isToday = formatted.date.includes(new Date().getFullYear().toString());
+                                
+                                return (
+                                    <div key={timezone.value} className="timezone-card bg-white rounded-xl shadow-lg p-6">
+                                        <div className="flex items-start justify-between mb-4">
+                                            <div>
+                                                <h3 className="text-lg font-semibold text-gray-800">
+                                                    {timezone.city}
+                                                </h3>
+                                                <p className="text-sm text-gray-600">{timezone.country}</p>
+                                            </div>
+                                            <span className="bg-cyan-100 text-cyan-700 px-2 py-1 rounded text-xs font-medium">
+                                                {getTimezoneAbbr(timezone.value)}
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="space-y-2">
+                                            <div className="time-display text-2xl font-bold text-gray-800">
+                                                {formatted.time}
+                                            </div>
+                                            <div className="text-lg text-gray-600">
+                                                {formatted.time12}
+                                            </div>
+                                            <div className="text-sm text-gray-500">
+                                                {formatted.date}
+                                            </div>
+                                        </div>
+
+                                        {/* Day indicator */}
+                                        <div className="mt-4 pt-4 border-t border-gray-200">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs text-gray-500">
+                                                    {timezone.value.replace('_', ' ')}
+                                                </span>
+                                                <span className={`text-xs px-2 py-1 rounded ${
+                                                    isToday 
+                                                        ? 'bg-green-100 text-green-700' 
+                                                        : 'bg-yellow-100 text-yellow-700'
+                                                }`}>
+                                                    {isToday ? 'Same Day' : 'Different Day'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Meeting Planner */}
+                        <div className="mt-8 bg-white rounded-xl shadow-lg p-6">
+                            <h3 className="text-xl font-semibold text-gray-800 mb-4">💼 Meeting Planner</h3>
+                            <p className="text-gray-600 mb-4">
+                                Use the time converter above to find the best meeting time across multiple timezones.
+                            </p>
+                            
+                            <div className="bg-cyan-50 rounded-lg p-4 border border-cyan-200">
+                                <h4 className="font-semibold text-cyan-800 mb-2">Pro Tips:</h4>
+                                <ul className="text-sm text-cyan-700 space-y-1">
+                                    <li>• 9 AM - 11 AM local time is usually good for most timezones</li>
+                                    <li>• Avoid scheduling during lunch hours (12-1 PM) in target zones</li>
+                                    <li>• Consider weekend differences across cultures</li>
+                                    <li>• Check for daylight saving time changes</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="text-center mt-8">
+                            <p className="text-sm text-gray-500">
+                                Built with JavaScript Intl API • Accurate Global Time Coordination
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<TimezoneConverter />, document.getElementById('root'));
+    </script>
+</body>
+</html> 

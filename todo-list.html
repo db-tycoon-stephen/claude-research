@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List - Simple Task Management</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .task-enter {
+            animation: slideIn 0.3s ease-out;
+        }
+        .task-complete {
+            animation: strikeThrough 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes strikeThrough {
+            from { opacity: 1; }
+            to { opacity: 0.6; }
+        }
+        .completed-task {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const TodoList = () => {
+            const [tasks, setTasks] = useState([]);
+            const [newTask, setNewTask] = useState('');
+            const [filter, setFilter] = useState('all'); // all, active, completed
+            const inputRef = useRef(null);
+
+            // Load tasks from localStorage on mount
+            useEffect(() => {
+                const savedTasks = localStorage.getItem('todoTasks');
+                if (savedTasks) {
+                    setTasks(JSON.parse(savedTasks));
+                }
+            }, []);
+
+            // Save tasks to localStorage whenever tasks change
+            useEffect(() => {
+                localStorage.setItem('todoTasks', JSON.stringify(tasks));
+            }, [tasks]);
+
+            // Add new task
+            const addTask = () => {
+                if (newTask.trim()) {
+                    const task = {
+                        id: Date.now(),
+                        text: newTask.trim(),
+                        completed: false,
+                        createdAt: new Date().toISOString()
+                    };
+                    setTasks([task, ...tasks]);
+                    setNewTask('');
+                    inputRef.current?.focus();
+                }
+            };
+
+            // Toggle task completion
+            const toggleTask = (id) => {
+                setTasks(tasks.map(task => 
+                    task.id === id ? { ...task, completed: !task.completed } : task
+                ));
+            };
+
+            // Delete task
+            const deleteTask = (id) => {
+                setTasks(tasks.filter(task => task.id !== id));
+            };
+
+            // Clear completed tasks
+            const clearCompleted = () => {
+                setTasks(tasks.filter(task => !task.completed));
+            };
+
+            // Filter tasks
+            const filteredTasks = tasks.filter(task => {
+                if (filter === 'active') return !task.completed;
+                if (filter === 'completed') return task.completed;
+                return true;
+            });
+
+            // Statistics
+            const totalTasks = tasks.length;
+            const completedTasks = tasks.filter(t => t.completed).length;
+            const activeTasks = totalTasks - completedTasks;
+            const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+            // Handle Enter key
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter') {
+                    addTask();
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+                    <div className="max-w-2xl mx-auto">
+                        {/* Header */}
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold text-blue-700 mb-2">
+                                📝 Todo List
+                            </h1>
+                            <p className="text-blue-600 text-lg">
+                                Simple task management made beautiful
+                            </p>
+                        </div>
+
+                        {/* Statistics */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                            <div className="bg-white rounded-xl p-4 text-center shadow-lg">
+                                <div className="text-2xl font-bold text-blue-600">{totalTasks}</div>
+                                <div className="text-sm text-gray-600">Total Tasks</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 text-center shadow-lg">
+                                <div className="text-2xl font-bold text-green-600">{completedTasks}</div>
+                                <div className="text-sm text-gray-600">Completed</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 text-center shadow-lg">
+                                <div className="text-2xl font-bold text-orange-600">{activeTasks}</div>
+                                <div className="text-sm text-gray-600">Active</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 text-center shadow-lg">
+                                <div className="text-2xl font-bold text-purple-600">{completionRate}%</div>
+                                <div className="text-sm text-gray-600">Complete</div>
+                            </div>
+                        </div>
+
+                        {/* Add Task */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                            <div className="flex gap-3">
+                                <input
+                                    ref={inputRef}
+                                    type="text"
+                                    value={newTask}
+                                    onChange={(e) => setNewTask(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                    placeholder="Add a new task..."
+                                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+                                    autoFocus
+                                />
+                                <button
+                                    onClick={addTask}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg"
+                                >
+                                    Add Task
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Filter Tabs */}
+                        <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
+                            <div className="flex space-x-2">
+                                {['all', 'active', 'completed'].map((filterType) => (
+                                    <button
+                                        key={filterType}
+                                        onClick={() => setFilter(filterType)}
+                                        className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                                            filter === filterType
+                                                ? 'bg-blue-500 text-white'
+                                                : 'text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+                                        {filterType === 'all' && ` (${totalTasks})`}
+                                        {filterType === 'active' && ` (${activeTasks})`}
+                                        {filterType === 'completed' && ` (${completedTasks})`}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Task List */}
+                        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                            {filteredTasks.length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <div className="text-6xl mb-4">
+                                        {filter === 'completed' ? '🎉' : '📋'}
+                                    </div>
+                                    <p className="text-gray-600 text-lg">
+                                        {filter === 'completed' ? 'No completed tasks yet' : 
+                                         filter === 'active' ? 'No active tasks' : 'No tasks yet'}
+                                    </p>
+                                    <p className="text-gray-500 text-sm mt-2">
+                                        {filter === 'all' && 'Add a task above to get started!'}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-gray-200">
+                                    {filteredTasks.map((task, index) => (
+                                        <div
+                                            key={task.id}
+                                            className={`p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors task-enter ${
+                                                task.completed ? 'completed-task' : ''
+                                            }`}
+                                            style={{ animationDelay: `${index * 50}ms` }}
+                                        >
+                                            <button
+                                                onClick={() => toggleTask(task.id)}
+                                                className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                                    task.completed
+                                                        ? 'bg-green-500 border-green-500 text-white'
+                                                        : 'border-gray-300 hover:border-green-500'
+                                                }`}
+                                            >
+                                                {task.completed && '✓'}
+                                            </button>
+                                            
+                                            <div className="flex-1">
+                                                <p className={`text-lg ${task.completed ? 'text-gray-500' : 'text-gray-800'}`}>
+                                                    {task.text}
+                                                </p>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    {new Date(task.createdAt).toLocaleDateString()} at {new Date(task.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </p>
+                                            </div>
+                                            
+                                            <button
+                                                onClick={() => deleteTask(task.id)}
+                                                className="flex-shrink-0 w-8 h-8 text-red-500 hover:bg-red-50 rounded-lg flex items-center justify-center transition-colors"
+                                                title="Delete task"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Actions */}
+                        {completedTasks > 0 && (
+                            <div className="mt-6 text-center">
+                                <button
+                                    onClick={clearCompleted}
+                                    className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg"
+                                >
+                                    Clear Completed ({completedTasks})
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Footer */}
+                        <div className="text-center mt-8">
+                            <p className="text-sm text-gray-500">
+                                Built with React & Local Storage • Privacy Focused
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<TodoList />, document.getElementById('root'));
+    </script>
+</body>
+</html> 
