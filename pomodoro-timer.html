@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Timer - Focus & Productivity</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .timer-circle {
+            stroke-dasharray: 314;
+            stroke-dashoffset: 314;
+            transition: stroke-dashoffset 1s linear;
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        const PomodoroTimer = () => {
+            // Timer states
+            const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
+            const [isActive, setIsActive] = useState(false);
+            const [mode, setMode] = useState('work'); // 'work', 'shortBreak', 'longBreak'
+            const [sessions, setSessions] = useState(0);
+            const [cycles, setCycles] = useState(0);
+
+            // Timer settings
+            const settings = {
+                work: 25 * 60,
+                shortBreak: 5 * 60,
+                longBreak: 15 * 60
+            };
+
+            // Audio references
+            const audioRef = useRef(null);
+            const intervalRef = useRef(null);
+
+            // Initialize audio
+            useEffect(() => {
+                // Create audio context for notification sound
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                audioRef.current = audioContext;
+            }, []);
+
+            // Play notification sound
+            const playNotification = useCallback(() => {
+                if (audioRef.current) {
+                    // Create a simple beep sound
+                    const oscillator = audioRef.current.createOscillator();
+                    const gainNode = audioRef.current.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioRef.current.destination);
+                    
+                    oscillator.frequency.setValueAtTime(800, audioRef.current.currentTime);
+                    gainNode.gain.setValueAtTime(0.3, audioRef.current.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioRef.current.currentTime + 0.5);
+                    
+                    oscillator.start(audioRef.current.currentTime);
+                    oscillator.stop(audioRef.current.currentTime + 0.5);
+                }
+            }, []);
+
+            // Timer logic
+            useEffect(() => {
+                if (isActive && timeLeft > 0) {
+                    intervalRef.current = setInterval(() => {
+                        setTimeLeft(time => time - 1);
+                    }, 1000);
+                } else if (timeLeft === 0) {
+                    // Timer finished
+                    setIsActive(false);
+                    playNotification();
+                    
+                    if (mode === 'work') {
+                        setSessions(prev => prev + 1);
+                        const newCycles = Math.floor((sessions + 1) / 4);
+                        setCycles(newCycles);
+                        
+                        // Switch to break mode
+                        if ((sessions + 1) % 4 === 0) {
+                            setMode('longBreak');
+                            setTimeLeft(settings.longBreak);
+                        } else {
+                            setMode('shortBreak');
+                            setTimeLeft(settings.shortBreak);
+                        }
+                    } else {
+                        // Break finished, back to work
+                        setMode('work');
+                        setTimeLeft(settings.work);
+                    }
+                } else {
+                    clearInterval(intervalRef.current);
+                }
+
+                return () => clearInterval(intervalRef.current);
+            }, [isActive, timeLeft, mode, sessions, playNotification, settings]);
+
+            // Format time display
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            // Calculate progress for circular progress bar
+            const getProgress = () => {
+                const total = settings[mode];
+                const progress = ((total - timeLeft) / total) * 314;
+                return 314 - progress;
+            };
+
+            // Control functions
+            const startTimer = () => {
+                setIsActive(true);
+                // Request audio permissions on first interaction
+                if (audioRef.current && audioRef.current.state === 'suspended') {
+                    audioRef.current.resume();
+                }
+            };
+
+            const pauseTimer = () => {
+                setIsActive(false);
+            };
+
+            const resetTimer = () => {
+                setIsActive(false);
+                setTimeLeft(settings[mode]);
+            };
+
+            const resetAll = () => {
+                setIsActive(false);
+                setMode('work');
+                setTimeLeft(settings.work);
+                setSessions(0);
+                setCycles(0);
+            };
+
+            // Switch modes manually
+            const switchMode = (newMode) => {
+                setIsActive(false);
+                setMode(newMode);
+                setTimeLeft(settings[newMode]);
+            };
+
+            // Get mode styling
+            const getModeStyles = () => {
+                switch (mode) {
+                    case 'work':
+                        return {
+                            bg: 'from-red-50 to-red-100',
+                            primary: 'text-red-600',
+                            secondary: 'text-red-500',
+                            button: 'bg-red-500 hover:bg-red-600',
+                            circle: 'stroke-red-500'
+                        };
+                    case 'shortBreak':
+                        return {
+                            bg: 'from-green-50 to-green-100',
+                            primary: 'text-green-600',
+                            secondary: 'text-green-500',
+                            button: 'bg-green-500 hover:bg-green-600',
+                            circle: 'stroke-green-500'
+                        };
+                    case 'longBreak':
+                        return {
+                            bg: 'from-blue-50 to-blue-100',
+                            primary: 'text-blue-600',
+                            secondary: 'text-blue-500',
+                            button: 'bg-blue-500 hover:bg-blue-600',
+                            circle: 'stroke-blue-500'
+                        };
+                    default:
+                        return {
+                            bg: 'from-gray-50 to-gray-100',
+                            primary: 'text-gray-600',
+                            secondary: 'text-gray-500',
+                            button: 'bg-gray-500 hover:bg-gray-600',
+                            circle: 'stroke-gray-500'
+                        };
+                }
+            };
+
+            const styles = getModeStyles();
+
+            return (
+                <div className={`min-h-screen bg-gradient-to-br ${styles.bg} py-8 px-4`}>
+                    <div className="max-w-md mx-auto">
+                        {/* Header */}
+                        <div className="text-center mb-8">
+                            <h1 className={`text-3xl font-bold ${styles.primary} mb-2`}>
+                                Pomodoro Timer
+                            </h1>
+                            <p className={`${styles.secondary} text-sm`}>
+                                Stay focused, stay productive
+                            </p>
+                        </div>
+
+                        {/* Mode Selector */}
+                        <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={() => switchMode('work')}
+                                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                        mode === 'work'
+                                            ? 'bg-red-500 text-white'
+                                            : 'text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    Work
+                                </button>
+                                <button
+                                    onClick={() => switchMode('shortBreak')}
+                                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                        mode === 'shortBreak'
+                                            ? 'bg-green-500 text-white'
+                                            : 'text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    Short Break
+                                </button>
+                                <button
+                                    onClick={() => switchMode('longBreak')}
+                                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                        mode === 'longBreak'
+                                            ? 'bg-blue-500 text-white'
+                                            : 'text-gray-600 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    Long Break
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Timer Display */}
+                        <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
+                            <div className="relative">
+                                {/* Circular Progress */}
+                                <div className="relative w-48 h-48 mx-auto mb-6">
+                                    <svg className="w-48 h-48 -rotate-90" viewBox="0 0 100 100">
+                                        <circle
+                                            cx="50"
+                                            cy="50"
+                                            r="45"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            fill="transparent"
+                                            className="text-gray-200"
+                                        />
+                                        <circle
+                                            cx="50"
+                                            cy="50"
+                                            r="45"
+                                            stroke="currentColor"
+                                            strokeWidth="3"
+                                            fill="transparent"
+                                            className={`timer-circle ${styles.circle}`}
+                                            style={{
+                                                strokeDashoffset: getProgress()
+                                            }}
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="text-center">
+                                            <div className={`text-4xl font-bold ${styles.primary} ${
+                                                isActive ? 'pulse' : ''
+                                            }`}>
+                                                {formatTime(timeLeft)}
+                                            </div>
+                                            <div className={`text-sm ${styles.secondary} mt-1 capitalize`}>
+                                                {mode === 'shortBreak' ? 'Short Break' : 
+                                                 mode === 'longBreak' ? 'Long Break' : 'Work Time'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Control Buttons */}
+                                <div className="flex justify-center space-x-4">
+                                    <button
+                                        onClick={isActive ? pauseTimer : startTimer}
+                                        className={`${styles.button} text-white px-8 py-3 rounded-lg font-medium transition-colors shadow-lg`}
+                                    >
+                                        {isActive ? 'Pause' : 'Start'}
+                                    </button>
+                                    <button
+                                        onClick={resetTimer}
+                                        className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg"
+                                    >
+                                        Reset
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Statistics */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                            <h3 className={`text-lg font-semibold ${styles.primary} mb-4`}>
+                                Session Statistics
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="text-center">
+                                    <div className={`text-2xl font-bold ${styles.primary}`}>
+                                        {sessions}
+                                    </div>
+                                    <div className={`text-sm ${styles.secondary}`}>
+                                        Sessions Today
+                                    </div>
+                                </div>
+                                <div className="text-center">
+                                    <div className={`text-2xl font-bold ${styles.primary}`}>
+                                        {cycles}
+                                    </div>
+                                    <div className={`text-sm ${styles.secondary}`}>
+                                        Complete Cycles
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={resetAll}
+                                className="w-full mt-4 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Reset All Stats
+                            </button>
+                        </div>
+
+                        {/* Instructions */}
+                        <div className="bg-white rounded-xl shadow-lg p-6">
+                            <h3 className={`text-lg font-semibold ${styles.primary} mb-3`}>
+                                How it Works
+                            </h3>
+                            <ul className="text-sm text-gray-600 space-y-2">
+                                <li className="flex items-start">
+                                    <span className="text-red-500 mr-2">•</span>
+                                    Work for 25 minutes with complete focus
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="text-green-500 mr-2">•</span>
+                                    Take a 5-minute short break
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="text-blue-500 mr-2">•</span>  
+                                    After 4 cycles, take a 15-minute long break
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="text-purple-500 mr-2">•</span>
+                                    Repeat the process throughout your day
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="text-center mt-8">
+                            <p className="text-sm text-gray-500">
+                                Built with React & Tailwind CSS • Focus & Productivity
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<PomodoroTimer />, document.getElementById('root'));
+    </script>
+</body>
+</html>
