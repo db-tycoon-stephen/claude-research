@@ -175,6 +175,40 @@
                     icon: '📝',
                     link: './word-counter.html',
                     stats: { features: '12+', accuracy: '99%' }
+                },
+                {
+                    id: 'json',
+                    title: 'JSON Formatter',
+                    subtitle: 'Developer Tool',
+                    description: 'Format, validate, and beautify JSON with syntax highlighting. Essential tool for developers and API work.',
+                    features: [
+                        'Real-time validation',
+                        'Format & minify',
+                        'Syntax highlighting',
+                        'Export options',
+                        'Error detection'
+                    ],
+                    color: 'from-emerald-500 to-teal-500',
+                    icon: '📋',
+                    link: './json-formatter.html',
+                    stats: { validation: '100%', features: '8+' }
+                },
+                {
+                    id: 'colors',
+                    title: 'Color Palette',
+                    subtitle: 'Design Tool',
+                    description: 'Generate beautiful color harmonies using color theory. Perfect for designers and creative projects.',
+                    features: [
+                        'Color theory harmonies',
+                        'WCAG accessibility',
+                        'Multiple formats',
+                        'Save & export',
+                        'Random generation'
+                    ],
+                    color: 'from-purple-500 to-pink-500',
+                    icon: '🎨',
+                    link: './color-palette.html',
+                    stats: { harmonies: '6', formats: '3' }
                 }
             ];
 
@@ -256,7 +290,7 @@
                                 </p>
                             </div>
 
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
                                 {applications.map((app, index) => (
                                     <div key={app.id} className={`card-hover bg-white rounded-2xl shadow-xl overflow-hidden transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`} style={{transitionDelay: `${index * 200}ms`}}>
                                         {/* App Header */}
@@ -400,7 +434,7 @@
                                     Crafted with care for productivity enthusiasts and security-conscious users
                                 </p>
                                 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                <div className="grid grid-cols-3 md:grid-cols-5 gap-3 mb-8 text-sm">
                                     <a href="./pomodoro-timer.html" className="text-gray-400 hover:text-white transition-colors text-center">
                                         Pomodoro Timer
                                     </a>
@@ -422,7 +456,12 @@
                                     <a href="./word-counter.html" className="text-gray-400 hover:text-white transition-colors text-center">
                                         Word Counter
                                     </a>
-                                    <div></div>
+                                    <a href="./json-formatter.html" className="text-gray-400 hover:text-white transition-colors text-center">
+                                        JSON Formatter
+                                    </a>
+                                    <a href="./color-palette.html" className="text-gray-400 hover:text-white transition-colors text-center">
+                                        Color Palette
+                                    </a>
                                 </div>
                                 
                                 <div className="border-t border-gray-700 pt-8">
