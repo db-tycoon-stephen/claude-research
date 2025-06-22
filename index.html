@@ -124,6 +124,57 @@
                     icon: '🐍',
                     link: './snake-game.html',
                     stats: { games: '15K+', 'high score': '420' }
+                },
+                {
+                    id: 'base64',
+                    title: 'Base64 Encoder',
+                    subtitle: 'Quick Text Conversion',
+                    description: 'Convert text to Base64 and back with URL-safe options. Essential tool for developers and data processing.',
+                    features: [
+                        'Instant encoding/decoding',
+                        'URL-safe option',
+                        'Conversion history',
+                        'Error handling',
+                        'One-click copy'
+                    ],
+                    color: 'from-yellow-500 to-orange-500',
+                    icon: '📤',
+                    link: './base64-encoder.html',
+                    stats: { conversions: '8K+', speed: '8min' }
+                },
+                {
+                    id: 'quotes',
+                    title: 'Quote Generator',
+                    subtitle: 'Daily Inspiration',
+                    description: 'Find motivation with curated inspirational quotes. Multiple categories, favorites system, and easy sharing.',
+                    features: [
+                        'Curated quote collection',
+                        'Multiple categories',
+                        'Favorites system',
+                        'Easy sharing',
+                        'Beautiful animations'
+                    ],
+                    color: 'from-pink-500 to-rose-500',
+                    icon: '✨',
+                    link: './quote-generator.html',
+                    stats: { quotes: '32+', categories: '5' }
+                },
+                {
+                    id: 'wordcounter',
+                    title: 'Word Counter',
+                    subtitle: 'Text Analysis',
+                    description: 'Comprehensive text analysis for writers. Count words, analyze readability, extract keywords, and more.',
+                    features: [
+                        'Real-time analysis',
+                        'Reading difficulty',
+                        'Keyword extraction',
+                        'Time estimates',
+                        'Export reports'
+                    ],
+                    color: 'from-indigo-500 to-purple-500',
+                    icon: '📝',
+                    link: './word-counter.html',
+                    stats: { features: '12+', accuracy: '99%' }
                 }
             ];
 
@@ -205,7 +256,7 @@
                                 </p>
                             </div>
 
-                            <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
                                 {applications.map((app, index) => (
                                     <div key={app.id} className={`card-hover bg-white rounded-2xl shadow-xl overflow-hidden transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`} style={{transitionDelay: `${index * 200}ms`}}>
                                         {/* App Header */}
@@ -349,19 +400,29 @@
                                     Crafted with care for productivity enthusiasts and security-conscious users
                                 </p>
                                 
-                                <div className="flex flex-wrap justify-center gap-6 mb-8">
-                                    <a href="./pomodoro-timer.html" className="text-gray-400 hover:text-white transition-colors">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                    <a href="./pomodoro-timer.html" className="text-gray-400 hover:text-white transition-colors text-center">
                                         Pomodoro Timer
                                     </a>
-                                    <a href="./password-generator.html" className="text-gray-400 hover:text-white transition-colors">
+                                    <a href="./password-generator.html" className="text-gray-400 hover:text-white transition-colors text-center">
                                         Password Generator
                                     </a>
-                                    <a href="./unit-converter.html" className="text-gray-400 hover:text-white transition-colors">
+                                    <a href="./unit-converter.html" className="text-gray-400 hover:text-white transition-colors text-center">
                                         Unit Converter
                                     </a>
-                                    <a href="./snake-game.html" className="text-gray-400 hover:text-white transition-colors">
+                                    <a href="./snake-game.html" className="text-gray-400 hover:text-white transition-colors text-center">
                                         Snake Game
                                     </a>
+                                    <a href="./base64-encoder.html" className="text-gray-400 hover:text-white transition-colors text-center">
+                                        Base64 Encoder
+                                    </a>
+                                    <a href="./quote-generator.html" className="text-gray-400 hover:text-white transition-colors text-center">
+                                        Quote Generator
+                                    </a>
+                                    <a href="./word-counter.html" className="text-gray-400 hover:text-white transition-colors text-center">
+                                        Word Counter
+                                    </a>
+                                    <div></div>
                                 </div>
                                 
                                 <div className="border-t border-gray-700 pt-8">
