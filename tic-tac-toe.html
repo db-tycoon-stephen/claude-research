@@ -114,10 +114,10 @@
                     for (let i = 0; i < 9; i++) {
                         if (currentBoard[i] === null) {
                             currentBoard[i] = 'O';
-                            const eval = minimax(currentBoard, depth + 1, false, alpha, beta);
+                            const evaluation = minimax(currentBoard, depth + 1, false, alpha, beta);
                             currentBoard[i] = null;
-                            maxEval = Math.max(maxEval, eval);
-                            alpha = Math.max(alpha, eval);
+                            maxEval = Math.max(maxEval, evaluation);
+                            alpha = Math.max(alpha, evaluation);
                             if (beta <= alpha) break;
                         }
                     }
@@ -127,10 +127,10 @@
                     for (let i = 0; i < 9; i++) {
                         if (currentBoard[i] === null) {
                             currentBoard[i] = 'X';
-                            const eval = minimax(currentBoard, depth + 1, true, alpha, beta);
+                            const evaluation = minimax(currentBoard, depth + 1, true, alpha, beta);
                             currentBoard[i] = null;
-                            minEval = Math.min(minEval, eval);
-                            beta = Math.min(beta, eval);
+                            minEval = Math.min(minEval, evaluation);
+                            beta = Math.min(beta, evaluation);
                             if (beta <= alpha) break;
                         }
                     }
