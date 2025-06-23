@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe - Classic Strategy Game</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .game-cell {
+            transition: all 0.2s ease;
+            font-size: 3rem;
+        }
+        .game-cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+        .winning-cell {
+            animation: pulse 1s infinite;
+            background: linear-gradient(45deg, #10b981, #34d399);
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .game-board {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-100 via-blue-100 to-indigo-100 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const TicTacToe = () => {
+            const [board, setBoard] = useState(Array(9).fill(null));
+            const [isPlayerTurn, setIsPlayerTurn] = useState(true);
+            const [gameStatus, setGameStatus] = useState('playing'); // playing, won, lost, draw
+            const [winner, setWinner] = useState(null);
+            const [winningLine, setWinningLine] = useState([]);
+            const [difficulty, setDifficulty] = useState('medium');
+            const [stats, setStats] = useState({
+                wins: 0,
+                losses: 0,
+                draws: 0,
+                gamesPlayed: 0
+            });
+            const [gameMode, setGameMode] = useState('ai'); // ai or human
+
+            // Load stats from localStorage
+            useEffect(() => {
+                const savedStats = localStorage.getItem('ticTacToeStats');
+                if (savedStats) {
+                    setStats(JSON.parse(savedStats));
+                }
+            }, []);
+
+            // Save stats to localStorage
+            useEffect(() => {
+                localStorage.setItem('ticTacToeStats', JSON.stringify(stats));
+            }, [stats]);
+
+            // Winning combinations
+            const winningCombinations = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+                [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+                [0, 4, 8], [2, 4, 6] // Diagonals
+            ];
+
+            // Check for winner
+            const checkWinner = (currentBoard) => {
+                for (let i = 0; i < winningCombinations.length; i++) {
+                    const [a, b, c] = winningCombinations[i];
+                    if (currentBoard[a] && currentBoard[a] === currentBoard[b] && currentBoard[a] === currentBoard[c]) {
+                        return { winner: currentBoard[a], line: [a, b, c] };
+                    }
+                }
+                return null;
+            };
+
+            // Check if board is full
+            const isBoardFull = (currentBoard) => {
+                return currentBoard.every(cell => cell !== null);
+            };
+
+            // Get available moves
+            const getAvailableMoves = (currentBoard) => {
+                return currentBoard.map((cell, index) => cell === null ? index : null).filter(val => val !== null);
+            };
+
+            // Minimax algorithm for AI
+            const minimax = (currentBoard, depth, isMaximizing, alpha = -Infinity, beta = Infinity) => {
+                const result = checkWinner(currentBoard);
+                
+                if (result) {
+                    if (result.winner === 'O') return 10 - depth;
+                    if (result.winner === 'X') return depth - 10;
+                }
+                
+                if (isBoardFull(currentBoard)) return 0;
+                
+                if (difficulty === 'easy' && Math.random() < 0.3) {
+                    const availableMoves = getAvailableMoves(currentBoard);
+                    return Math.random() - 0.5; // Random for easy mode
+                }
+
+                if (isMaximizing) {
+                    let maxEval = -Infinity;
+                    for (let i = 0; i < 9; i++) {
+                        if (currentBoard[i] === null) {
+                            currentBoard[i] = 'O';
+                            const eval = minimax(currentBoard, depth + 1, false, alpha, beta);
+                            currentBoard[i] = null;
+                            maxEval = Math.max(maxEval, eval);
+                            alpha = Math.max(alpha, eval);
+                            if (beta <= alpha) break;
+                        }
+                    }
+                    return maxEval;
+                } else {
+                    let minEval = Infinity;
+                    for (let i = 0; i < 9; i++) {
+                        if (currentBoard[i] === null) {
+                            currentBoard[i] = 'X';
+                            const eval = minimax(currentBoard, depth + 1, true, alpha, beta);
+                            currentBoard[i] = null;
+                            minEval = Math.min(minEval, eval);
+                            beta = Math.min(beta, eval);
+                            if (beta <= alpha) break;
+                        }
+                    }
+                    return minEval;
+                }
+            };
+
+            // Get best AI move
+            const getBestMove = (currentBoard) => {
+                let bestMove = -1;
+                let bestValue = -Infinity;
+
+                for (let i = 0; i < 9; i++) {
+                    if (currentBoard[i] === null) {
+                        currentBoard[i] = 'O';
+                        const moveValue = minimax(currentBoard, 0, false);
+                        currentBoard[i] = null;
+
+                        if (moveValue > bestValue) {
+                            bestMove = i;
+                            bestValue = moveValue;
+                        }
+                    }
+                }
+
+                return bestMove;
+            };
+
+            // Handle cell click
+            const handleCellClick = (index) => {
+                if (board[index] || gameStatus !== 'playing' || (gameMode === 'ai' && !isPlayerTurn)) {
+                    return;
+                }
+
+                const newBoard = [...board];
+                newBoard[index] = gameMode === 'ai' ? 'X' : (isPlayerTurn ? 'X' : 'O');
+                setBoard(newBoard);
+
+                const result = checkWinner(newBoard);
+                if (result) {
+                    setWinner(result.winner);
+                    setWinningLine(result.line);
+                    if (gameMode === 'ai') {
+                        setGameStatus(result.winner === 'X' ? 'won' : 'lost');
+                        updateStats(result.winner === 'X' ? 'win' : 'loss');
+                    } else {
+                        setGameStatus('won');
+                        updateStats('win');
+                    }
+                    return;
+                }
+
+                if (isBoardFull(newBoard)) {
+                    setGameStatus('draw');
+                    updateStats('draw');
+                    return;
+                }
+
+                if (gameMode === 'ai') {
+                    setIsPlayerTurn(false);
+                    // AI move after short delay
+                    setTimeout(() => {
+                        makeAIMove(newBoard);
+                    }, 500);
+                } else {
+                    setIsPlayerTurn(!isPlayerTurn);
+                }
+            };
+
+            // AI makes move
+            const makeAIMove = (currentBoard) => {
+                const aiMove = getBestMove(currentBoard);
+                const newBoard = [...currentBoard];
+                newBoard[aiMove] = 'O';
+                setBoard(newBoard);
+
+                const result = checkWinner(newBoard);
+                if (result) {
+                    setWinner(result.winner);
+                    setWinningLine(result.line);
+                    setGameStatus('lost');
+                    updateStats('loss');
+                    return;
+                }
+
+                if (isBoardFull(newBoard)) {
+                    setGameStatus('draw');
+                    updateStats('draw');
+                    return;
+                }
+
+                setIsPlayerTurn(true);
+            };
+
+            // Update statistics
+            const updateStats = (result) => {
+                setStats(prevStats => ({
+                    ...prevStats,
+                    [result === 'win' ? 'wins' : result === 'loss' ? 'losses' : 'draws']: 
+                        prevStats[result === 'win' ? 'wins' : result === 'loss' ? 'losses' : 'draws'] + 1,
+                    gamesPlayed: prevStats.gamesPlayed + 1
+                }));
+            };
+
+            // Reset game
+            const resetGame = () => {
+                setBoard(Array(9).fill(null));
+                setIsPlayerTurn(true);
+                setGameStatus('playing');
+                setWinner(null);
+                setWinningLine([]);
+            };
+
+            // Reset stats
+            const resetStats = () => {
+                setStats({
+                    wins: 0,
+                    losses: 0,
+                    draws: 0,
+                    gamesPlayed: 0
+                });
+            };
+
+            // Get cell content with styling
+            const getCellContent = (index) => {
+                const value = board[index];
+                if (!value) return '';
+                
+                const isWinning = winningLine.includes(index);
+                return (
+                    <span className={`${
+                        value === 'X' ? 'text-blue-600' : 'text-red-500'
+                    } ${isWinning ? 'text-white' : ''} font-bold`}>
+                        {value}
+                    </span>
+                );
+            };
+
+            // Calculate win rate
+            const getWinRate = () => {
+                if (stats.gamesPlayed === 0) return 0;
+                return Math.round((stats.wins / stats.gamesPlayed) * 100);
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-purple-100 via-blue-100 to-indigo-100 py-8 px-4">
+                    <div className="max-w-4xl mx-auto">
+                        {/* Header */}
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold text-gray-800 mb-2">
+                                ⭕ Tic Tac Toe
+                            </h1>
+                            <p className="text-gray-600 text-lg">
+                                Classic strategy game with AI opponent
+                            </p>
+                        </div>
+
+                        <div className="grid lg:grid-cols-3 gap-8">
+                            {/* Game Board */}
+                            <div className="lg:col-span-2">
+                                <div className="bg-white rounded-2xl shadow-xl p-8">
+                                    {/* Game Status */}
+                                    <div className="text-center mb-6">
+                                        <div className="text-2xl font-bold mb-2">
+                                            {gameStatus === 'playing' && gameMode === 'ai' && (
+                                                <span className={isPlayerTurn ? 'text-blue-600' : 'text-red-500'}>
+                                                    {isPlayerTurn ? "Your Turn (X)" : "AI Thinking... (O)"}
+                                                </span>
+                                            )}
+                                            {gameStatus === 'playing' && gameMode === 'human' && (
+                                                <span className={isPlayerTurn ? 'text-blue-600' : 'text-red-500'}>
+                                                    {isPlayerTurn ? "Player 1 (X)" : "Player 2 (O)"}
+                                                </span>
+                                            )}
+                                            {gameStatus === 'won' && gameMode === 'ai' && (
+                                                <span className="text-green-600">🎉 You Won!</span>
+                                            )}
+                                            {gameStatus === 'lost' && (
+                                                <span className="text-red-600">😔 AI Won!</span>
+                                            )}
+                                            {gameStatus === 'draw' && (
+                                                <span className="text-yellow-600">🤝 It's a Draw!</span>
+                                            )}
+                                            {gameStatus === 'won' && gameMode === 'human' && (
+                                                <span className="text-green-600">🎉 {winner} Wins!</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Game Board */}
+                                    <div className="game-board p-4 rounded-xl mb-6">
+                                        <div className="grid grid-cols-3 gap-2 max-w-sm mx-auto">
+                                            {board.map((cell, index) => (
+                                                <button
+                                                    key={index}
+                                                    onClick={() => handleCellClick(index)}
+                                                    className={`game-cell h-20 w-20 bg-white rounded-lg shadow-lg flex items-center justify-center border-2 transition-all ${
+                                                        winningLine.includes(index) 
+                                                            ? 'winning-cell border-green-400' 
+                                                            : 'border-gray-200 hover:border-blue-400'
+                                                    } ${
+                                                        cell || gameStatus !== 'playing' || (gameMode === 'ai' && !isPlayerTurn)
+                                                            ? 'cursor-not-allowed' 
+                                                            : 'cursor-pointer hover:bg-blue-50'
+                                                    }`}
+                                                    disabled={cell || gameStatus !== 'playing' || (gameMode === 'ai' && !isPlayerTurn)}
+                                                >
+                                                    {getCellContent(index)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Game Controls */}
+                                    <div className="flex justify-center gap-4">
+                                        <button
+                                            onClick={resetGame}
+                                            className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
+                                        >
+                                            🔄 New Game
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Sidebar */}
+                            <div className="space-y-6">
+                                {/* Game Settings */}
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">Game Settings</h3>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Game Mode
+                                            </label>
+                                            <select
+                                                value={gameMode}
+                                                onChange={(e) => {
+                                                    setGameMode(e.target.value);
+                                                    resetGame();
+                                                }}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            >
+                                                <option value="ai">🤖 vs AI</option>
+                                                <option value="human">👥 vs Human</option>
+                                            </select>
+                                        </div>
+
+                                        {gameMode === 'ai' && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    AI Difficulty
+                                                </label>
+                                                <select
+                                                    value={difficulty}
+                                                    onChange={(e) => {
+                                                        setDifficulty(e.target.value);
+                                                        resetGame();
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                >
+                                                    <option value="easy">😊 Easy</option>
+                                                    <option value="medium">😐 Medium</option>
+                                                    <option value="hard">😤 Hard</option>
+                                                </select>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Statistics */}
+                                {gameMode === 'ai' && (
+                                    <div className="bg-white rounded-xl shadow-lg p-6">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className="text-xl font-bold text-gray-800">Statistics</h3>
+                                            <button
+                                                onClick={resetStats}
+                                                className="text-red-500 hover:text-red-700 text-sm"
+                                            >
+                                                Reset
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Games Played:</span>
+                                                <span className="font-semibold">{stats.gamesPlayed}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-green-600">Wins:</span>
+                                                <span className="font-semibold text-green-600">{stats.wins}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-red-600">Losses:</span>
+                                                <span className="font-semibold text-red-600">{stats.losses}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-yellow-600">Draws:</span>
+                                                <span className="font-semibold text-yellow-600">{stats.draws}</span>
+                                            </div>
+                                            <hr />
+                                            <div className="flex justify-between">
+                                                <span className="text-indigo-600">Win Rate:</span>
+                                                <span className="font-semibold text-indigo-600">{getWinRate()}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Game Rules */}
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">How to Play</h3>
+                                    <div className="text-sm text-gray-600 space-y-2">
+                                        <p>• Get 3 of your marks in a row (horizontal, vertical, or diagonal)</p>
+                                        <p>• You are X, AI/Player 2 is O</p>
+                                        <p>• Click on empty squares to make your move</p>
+                                        <p>• Challenge the AI on different difficulty levels!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<TicTacToe />, document.getElementById('root'));
+    </script>
+</body>
+</html> 

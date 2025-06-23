@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Card Game - Brain Training</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            perspective: 1000px;
+            transition: transform 0.2s ease;
+        }
+        .card:hover {
+            transform: scale(1.05);
+        }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card-flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        .matched {
+            animation: match 0.5s ease;
+        }
+        @keyframes match {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .celebration {
+            animation: celebrate 1s ease;
+        }
+        @keyframes celebrate {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-pink-100 via-purple-100 to-indigo-100 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const MemoryGame = () => {
+            const [cards, setCards] = useState([]);
+            const [flippedCards, setFlippedCards] = useState([]);
+            const [matchedCards, setMatchedCards] = useState([]);
+            const [moves, setMoves] = useState(0);
+            const [gameStatus, setGameStatus] = useState('ready'); // ready, playing, won
+            const [timer, setTimer] = useState(0);
+            const [isTimerRunning, setIsTimerRunning] = useState(false);
+            const [difficulty, setDifficulty] = useState('easy');
+            const [theme, setTheme] = useState('emojis');
+            const [bestScore, setBestScore] = useState(null);
+            const [stats, setStats] = useState({
+                gamesPlayed: 0,
+                totalMoves: 0,
+                totalTime: 0,
+                bestTime: null
+            });
+
+            const timerRef = useRef(null);
+
+            // Card themes
+            const themes = {
+                emojis: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐸', '🦁', '🐯', '🐷', '🐸', '🐙', '🦋'],
+                fruits: ['🍎', '🍊', '🍌', '🍇', '🍓', '🥝', '🍑', '🍒', '🥭', '🍍', '🥥', '🍈', '🍉', '🍋', '🥑', '🍑'],
+                animals: ['🐕', '🐈', '🐀', '🐁', '🐇', '🦌', '🐎', '🐖', '🐄', '🐂', '🐃', '🦏', '🐘', '🦛', '🦒', '🐪'],
+                nature: ['🌲', '🌳', '🌴', '🌵', '🌿', '🍀', '🌺', '🌸', '🌼', '🌻', '🌹', '🥀', '🏔️', '⛰️', '🗻', '🌋'],
+                transport: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🏍️', '🛵']
+            };
+
+            // Difficulty settings
+            const difficulties = {
+                easy: { pairs: 6, gridCols: 3 },
+                medium: { pairs: 8, gridCols: 4 },
+                hard: { pairs: 12, gridCols: 4 },
+                expert: { pairs: 16, gridCols: 4 }
+            };
+
+            // Load stats from localStorage
+            useEffect(() => {
+                const savedStats = localStorage.getItem('memoryGameStats');
+                const savedBestScore = localStorage.getItem('memoryGameBestScore');
+                
+                if (savedStats) {
+                    setStats(JSON.parse(savedStats));
+                }
+                if (savedBestScore) {
+                    setBestScore(JSON.parse(savedBestScore));
+                }
+            }, []);
+
+            // Save stats to localStorage
+            useEffect(() => {
+                localStorage.setItem('memoryGameStats', JSON.stringify(stats));
+            }, [stats]);
+
+            useEffect(() => {
+                if (bestScore) {
+                    localStorage.setItem('memoryGameBestScore', JSON.stringify(bestScore));
+                }
+            }, [bestScore]);
+
+            // Timer effect
+            useEffect(() => {
+                if (isTimerRunning) {
+                    timerRef.current = setInterval(() => {
+                        setTimer(prev => prev + 1);
+                    }, 1000);
+                } else {
+                    clearInterval(timerRef.current);
+                }
+
+                return () => clearInterval(timerRef.current);
+            }, [isTimerRunning]);
+
+            // Initialize game
+            const initializeGame = () => {
+                const { pairs } = difficulties[difficulty];
+                const selectedCards = themes[theme].slice(0, pairs);
+                const cardPairs = [...selectedCards, ...selectedCards];
+                
+                // Shuffle cards
+                const shuffledCards = cardPairs
+                    .map((card, index) => ({ id: index, content: card }))
+                    .sort(() => Math.random() - 0.5);
+
+                setCards(shuffledCards);
+                setFlippedCards([]);
+                setMatchedCards([]);
+                setMoves(0);
+                setTimer(0);
+                setGameStatus('ready');
+                setIsTimerRunning(false);
+            };
+
+            // Initialize game on difficulty or theme change
+            useEffect(() => {
+                initializeGame();
+            }, [difficulty, theme]);
+
+            // Handle card click
+            const handleCardClick = (cardId) => {
+                if (
+                    flippedCards.length === 2 ||
+                    flippedCards.includes(cardId) ||
+                    matchedCards.includes(cardId)
+                ) {
+                    return;
+                }
+
+                // Start timer on first move
+                if (gameStatus === 'ready') {
+                    setGameStatus('playing');
+                    setIsTimerRunning(true);
+                }
+
+                const newFlippedCards = [...flippedCards, cardId];
+                setFlippedCards(newFlippedCards);
+
+                if (newFlippedCards.length === 2) {
+                    setMoves(prev => prev + 1);
+                    
+                    const [firstCard, secondCard] = newFlippedCards;
+                    const firstCardContent = cards.find(card => card.id === firstCard)?.content;
+                    const secondCardContent = cards.find(card => card.id === secondCard)?.content;
+
+                    if (firstCardContent === secondCardContent) {
+                        // Match found
+                        setTimeout(() => {
+                            setMatchedCards(prev => [...prev, firstCard, secondCard]);
+                            setFlippedCards([]);
+                        }, 600);
+                    } else {
+                        // No match
+                        setTimeout(() => {
+                            setFlippedCards([]);
+                        }, 1000);
+                    }
+                }
+            };
+
+            // Check for game completion
+            useEffect(() => {
+                const { pairs } = difficulties[difficulty];
+                if (matchedCards.length === pairs * 2 && gameStatus === 'playing') {
+                    setGameStatus('won');
+                    setIsTimerRunning(false);
+                    
+                    // Update stats
+                    const newStats = {
+                        gamesPlayed: stats.gamesPlayed + 1,
+                        totalMoves: stats.totalMoves + moves,
+                        totalTime: stats.totalTime + timer,
+                        bestTime: stats.bestTime === null ? timer : Math.min(stats.bestTime, timer)
+                    };
+                    setStats(newStats);
+
+                    // Update best score
+                    const score = calculateScore();
+                    if (!bestScore || score > bestScore.score) {
+                        setBestScore({
+                            score,
+                            moves,
+                            time: timer,
+                            difficulty,
+                            date: new Date().toISOString()
+                        });
+                    }
+                }
+            }, [matchedCards, gameStatus, timer, moves, difficulty, stats, bestScore]);
+
+            // Calculate score based on moves and time
+            const calculateScore = () => {
+                const { pairs } = difficulties[difficulty];
+                const maxMoves = pairs * 3; // Perfect score baseline
+                const maxTime = pairs * 10; // Perfect time baseline
+                
+                const moveScore = Math.max(0, (maxMoves - moves) / maxMoves * 50);
+                const timeScore = Math.max(0, (maxTime - timer) / maxTime * 50);
+                
+                return Math.round(moveScore + timeScore);
+            };
+
+            // Format time display
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            // Get card class names
+            const getCardClassName = (cardId) => {
+                const isFlipped = flippedCards.includes(cardId) || matchedCards.includes(cardId);
+                const isMatched = matchedCards.includes(cardId);
+                
+                return `card w-full h-24 cursor-pointer ${isFlipped ? 'card-flipped' : ''} ${
+                    isMatched ? 'matched' : ''
+                }`;
+            };
+
+            // Get grid class based on difficulty
+            const getGridClass = () => {
+                const { gridCols } = difficulties[difficulty];
+                return `grid gap-4 max-w-2xl mx-auto` + 
+                    (gridCols === 3 ? ' grid-cols-3' : ' grid-cols-4');
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-indigo-100 py-8 px-4">
+                    <div className="max-w-6xl mx-auto">
+                        {/* Header */}
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold text-gray-800 mb-2">
+                                🧠 Memory Card Game
+                            </h1>
+                            <p className="text-gray-600 text-lg">
+                                Train your brain with this classic matching game
+                            </p>
+                        </div>
+
+                        {/* Game Stats Bar */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-blue-600">{moves}</div>
+                                <div className="text-sm text-gray-600">Moves</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-green-600">{formatTime(timer)}</div>
+                                <div className="text-sm text-gray-600">Time</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-purple-600">
+                                    {gameStatus === 'won' ? calculateScore() : '-'}
+                                </div>
+                                <div className="text-sm text-gray-600">Score</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-orange-600">
+                                    {matchedCards.length / 2}/{difficulties[difficulty].pairs}
+                                </div>
+                                <div className="text-sm text-gray-600">Pairs</div>
+                            </div>
+                        </div>
+
+                        <div className="grid lg:grid-cols-4 gap-8">
+                            {/* Game Board */}
+                            <div className="lg:col-span-3">
+                                <div className="bg-white rounded-2xl shadow-xl p-8">
+                                    {/* Game Status */}
+                                    <div className="text-center mb-6">
+                                        {gameStatus === 'ready' && (
+                                            <div className="text-xl text-gray-600">
+                                                Click any card to start!
+                                            </div>
+                                        )}
+                                        {gameStatus === 'playing' && (
+                                            <div className="text-xl text-blue-600">
+                                                Find all the matching pairs!
+                                            </div>
+                                        )}
+                                        {gameStatus === 'won' && (
+                                            <div className="celebration text-2xl text-green-600 font-bold">
+                                                🎉 Congratulations! You won in {moves} moves and {formatTime(timer)}!
+                                                <div className="text-lg text-purple-600 mt-2">
+                                                    Score: {calculateScore()} points
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Card Grid */}
+                                    <div className={getGridClass()}>
+                                        {cards.map((card) => (
+                                            <div
+                                                key={card.id}
+                                                className={getCardClassName(card.id)}
+                                                onClick={() => handleCardClick(card.id)}
+                                            >
+                                                <div className="card-inner">
+                                                    {/* Card Front (back side) */}
+                                                    <div className="card-front bg-gradient-to-br from-indigo-400 to-purple-500 border-2 border-indigo-300">
+                                                        <span className="text-white text-2xl">❓</span>
+                                                    </div>
+                                                    {/* Card Back (front side) */}
+                                                    <div className="card-back bg-gradient-to-br from-blue-100 to-purple-100 border-2 border-purple-300">
+                                                        <span>{card.content}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Game Controls */}
+                                    <div className="flex justify-center gap-4 mt-8">
+                                        <button
+                                            onClick={initializeGame}
+                                            className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
+                                        >
+                                            🔄 New Game
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Sidebar */}
+                            <div className="space-y-6">
+                                {/* Game Settings */}
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">Game Settings</h3>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Difficulty
+                                            </label>
+                                            <select
+                                                value={difficulty}
+                                                onChange={(e) => setDifficulty(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            >
+                                                <option value="easy">😊 Easy (6 pairs)</option>
+                                                <option value="medium">😐 Medium (8 pairs)</option>
+                                                <option value="hard">😤 Hard (12 pairs)</option>
+                                                <option value="expert">🔥 Expert (16 pairs)</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Theme
+                                            </label>
+                                            <select
+                                                value={theme}
+                                                onChange={(e) => setTheme(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            >
+                                                <option value="emojis">😊 Emojis</option>
+                                                <option value="fruits">🍎 Fruits</option>
+                                                <option value="animals">🐶 Animals</option>
+                                                <option value="nature">🌲 Nature</option>
+                                                <option value="transport">🚗 Transport</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Best Score */}
+                                {bestScore && (
+                                    <div className="bg-white rounded-xl shadow-lg p-6">
+                                        <h3 className="text-xl font-bold text-gray-800 mb-4">🏆 Best Score</h3>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Score:</span>
+                                                <span className="font-semibold text-purple-600">{bestScore.score} pts</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Moves:</span>
+                                                <span className="font-semibold">{bestScore.moves}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Time:</span>
+                                                <span className="font-semibold">{formatTime(bestScore.time)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Level:</span>
+                                                <span className="font-semibold capitalize">{bestScore.difficulty}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Statistics */}
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">📊 Statistics</h3>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Games Played:</span>
+                                            <span className="font-semibold">{stats.gamesPlayed}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Average Moves:</span>
+                                            <span className="font-semibold">
+                                                {stats.gamesPlayed > 0 ? Math.round(stats.totalMoves / stats.gamesPlayed) : 0}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Best Time:</span>
+                                            <span className="font-semibold">
+                                                {stats.bestTime ? formatTime(stats.bestTime) : '-'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Total Time:</span>
+                                            <span className="font-semibold">{formatTime(stats.totalTime)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* How to Play */}
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">How to Play</h3>
+                                    <div className="text-sm text-gray-600 space-y-2">
+                                        <p>• Click cards to flip them over</p>
+                                        <p>• Find matching pairs to remove them</p>
+                                        <p>• Match all pairs to win the game</p>
+                                        <p>• Try to win with fewer moves and faster time!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<MemoryGame />, document.getElementById('root'));
+    </script>
+</body>
+</html> 
