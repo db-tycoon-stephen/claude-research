@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Guessing Game - Test Your Intuition</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .guess-input {
+            transition: all 0.3s ease;
+        }
+        .guess-input:focus {
+            transform: scale(1.02);
+        }
+        .hint-animation {
+            animation: bounce 0.6s ease;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        .victory-animation {
+            animation: celebrate 1s ease;
+        }
+        @keyframes celebrate {
+            0% { transform: scale(1) rotate(0deg); }
+            25% { transform: scale(1.1) rotate(-5deg); }
+            50% { transform: scale(1.2) rotate(5deg); }
+            75% { transform: scale(1.1) rotate(-2deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-green-100 via-blue-100 to-purple-100 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const NumberGuessingGame = () => {
+            const [targetNumber, setTargetNumber] = useState(null);
+            const [currentGuess, setCurrentGuess] = useState('');
+            const [guesses, setGuesses] = useState([]);
+            const [gameStatus, setGameStatus] = useState('playing'); // playing, won, lost
+            const [difficulty, setDifficulty] = useState('medium');
+            const [hint, setHint] = useState('');
+            const [score, setScore] = useState(0);
+            const [streak, setStreak] = useState(0);
+            const [timeLeft, setTimeLeft] = useState(0);
+            const [isTimerMode, setIsTimerMode] = useState(false);
+            const [stats, setStats] = useState({
+                totalGames: 0,
+                wins: 0,
+                totalGuesses: 0,
+                bestScore: null,
+                longestStreak: 0
+            });
+
+            const inputRef = useRef(null);
+            const timerRef = useRef(null);
+
+            // Difficulty settings
+            const difficulties = {
+                easy: { min: 1, max: 50, maxGuesses: 10, timeLimit: 120, baseScore: 100 },
+                medium: { min: 1, max: 100, maxGuesses: 8, timeLimit: 90, baseScore: 200 },
+                hard: { min: 1, max: 200, maxGuesses: 6, timeLimit: 60, baseScore: 300 },
+                expert: { min: 1, max: 500, maxGuesses: 5, timeLimit: 45, baseScore: 500 }
+            };
+
+            // Load stats from localStorage
+            useEffect(() => {
+                const savedStats = localStorage.getItem('numberGuessingStats');
+                if (savedStats) {
+                    setStats(JSON.parse(savedStats));
+                }
+                startNewGame();
+            }, []);
+
+            // Save stats to localStorage
+            useEffect(() => {
+                localStorage.setItem('numberGuessingStats', JSON.stringify(stats));
+            }, [stats]);
+
+            // Timer effect
+            useEffect(() => {
+                if (isTimerMode && timeLeft > 0 && gameStatus === 'playing') {
+                    timerRef.current = setTimeout(() => {
+                        setTimeLeft(prev => prev - 1);
+                    }, 1000);
+                } else if (isTimerMode && timeLeft === 0 && gameStatus === 'playing') {
+                    endGame(false);
+                }
+
+                return () => clearTimeout(timerRef.current);
+            }, [timeLeft, isTimerMode, gameStatus]);
+
+            // Start new game
+            const startNewGame = () => {
+                const { min, max, timeLimit } = difficulties[difficulty];
+                const newTarget = Math.floor(Math.random() * (max - min + 1)) + min;
+                
+                setTargetNumber(newTarget);
+                setCurrentGuess('');
+                setGuesses([]);
+                setGameStatus('playing');
+                setHint(`I'm thinking of a number between ${min} and ${max}...`);
+                setTimeLeft(isTimerMode ? timeLimit : 0);
+                
+                // Focus input
+                setTimeout(() => {
+                    if (inputRef.current) {
+                        inputRef.current.focus();
+                    }
+                }, 100);
+            };
+
+            // Make a guess
+            const makeGuess = () => {
+                const guess = parseInt(currentGuess);
+                const { min, max, maxGuesses } = difficulties[difficulty];
+
+                if (!guess || guess < min || guess > max) {
+                    setHint(`Please enter a number between ${min} and ${max}`);
+                    return;
+                }
+
+                if (guesses.includes(guess)) {
+                    setHint(`You already guessed ${guess}! Try a different number.`);
+                    return;
+                }
+
+                const newGuesses = [...guesses, guess];
+                setGuesses(newGuesses);
+                setCurrentGuess('');
+
+                if (guess === targetNumber) {
+                    // Victory!
+                    endGame(true);
+                } else if (newGuesses.length >= maxGuesses) {
+                    // Out of guesses
+                    endGame(false);
+                } else {
+                    // Give hint
+                    const distance = Math.abs(guess - targetNumber);
+                    let hintText = '';
+                    
+                    if (guess < targetNumber) {
+                        hintText = 'Too low! ';
+                    } else {
+                        hintText = 'Too high! ';
+                    }
+
+                    // Add proximity hints
+                    const range = difficulties[difficulty].max - difficulties[difficulty].min;
+                    if (distance <= range * 0.05) {
+                        hintText += '🔥 You\'re burning hot!';
+                    } else if (distance <= range * 0.1) {
+                        hintText += '♨️ Very warm!';
+                    } else if (distance <= range * 0.2) {
+                        hintText += '🌡️ Getting warm...';
+                    } else if (distance <= range * 0.4) {
+                        hintText += '❄️ Cold';
+                    } else {
+                        hintText += '🧊 Ice cold!';
+                    }
+
+                    hintText += ` (${maxGuesses - newGuesses.length} guesses left)`;
+                    setHint(hintText);
+                }
+            };
+
+            // End game
+            const endGame = (won) => {
+                setGameStatus(won ? 'won' : 'lost');
+                
+                if (won) {
+                    // Calculate score
+                    const { baseScore } = difficulties[difficulty];
+                    const guessBonus = Math.max(0, (difficulties[difficulty].maxGuesses - guesses.length - 1) * 50);
+                    const timeBonus = isTimerMode ? Math.max(0, timeLeft * 2) : 0;
+                    const streakBonus = streak * 25;
+                    const newScore = baseScore + guessBonus + timeBonus + streakBonus;
+                    
+                    setScore(prevScore => prevScore + newScore);
+                    setStreak(prevStreak => prevStreak + 1);
+                    setHint(`🎉 Correct! The number was ${targetNumber}. Score: +${newScore}`);
+                } else {
+                    setStreak(0);
+                    setHint(`😔 Game over! The number was ${targetNumber}.`);
+                }
+
+                // Update stats
+                setStats(prevStats => ({
+                    totalGames: prevStats.totalGames + 1,
+                    wins: prevStats.wins + (won ? 1 : 0),
+                    totalGuesses: prevStats.totalGuesses + guesses.length + 1,
+                    bestScore: prevStats.bestScore === null ? score : Math.max(prevStats.bestScore, score),
+                    longestStreak: Math.max(prevStats.longestStreak, won ? streak + 1 : streak)
+                }));
+            };
+
+            // Handle input submit
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (gameStatus === 'playing') {
+                    makeGuess();
+                } else {
+                    startNewGame();
+                }
+            };
+
+            // Reset stats
+            const resetStats = () => {
+                setStats({
+                    totalGames: 0,
+                    wins: 0,
+                    totalGuesses: 0,
+                    bestScore: null,
+                    longestStreak: 0
+                });
+                setScore(0);
+                setStreak(0);
+            };
+
+            // Format time
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            // Calculate win rate
+            const getWinRate = () => {
+                if (stats.totalGames === 0) return 0;
+                return Math.round((stats.wins / stats.totalGames) * 100);
+            };
+
+            // Get progress percentage
+            const getProgress = () => {
+                if (gameStatus !== 'playing') return 100;
+                return (guesses.length / difficulties[difficulty].maxGuesses) * 100;
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-green-100 via-blue-100 to-purple-100 py-8 px-4">
+                    <div className="max-w-4xl mx-auto">
+                        <!-- Header -->
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold text-gray-800 mb-2">
+                                🎯 Number Guessing Game
+                            </h1>
+                            <p className="text-gray-600 text-lg">
+                                Test your intuition and guessing skills!
+                            </p>
+                        </div>
+
+                        <!-- Game Stats -->
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-blue-600">{score}</div>
+                                <div className="text-sm text-gray-600">Score</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-green-600">{streak}</div>
+                                <div className="text-sm text-gray-600">Streak</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-purple-600">{guesses.length}</div>
+                                <div className="text-sm text-gray-600">Guesses</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-orange-600">
+                                    {isTimerMode ? formatTime(timeLeft) : '∞'}
+                                </div>
+                                <div className="text-sm text-gray-600">Time</div>
+                            </div>
+                        </div>
+
+                        <div className="grid lg:grid-cols-3 gap-8">
+                            <!-- Game Area -->
+                            <div className="lg:col-span-2">
+                                <div className="bg-white rounded-2xl shadow-xl p-8">
+                                    <!-- Game Status -->
+                                    <div className="text-center mb-6">
+                                        <div className={`text-xl mb-4 p-4 rounded-lg ${
+                                            gameStatus === 'won' ? 'bg-green-100 text-green-800 victory-animation' :
+                                            gameStatus === 'lost' ? 'bg-red-100 text-red-800' :
+                                            'bg-blue-100 text-blue-800'
+                                        } hint-animation`}>
+                                            {hint}
+                                        </div>
+                                    </div>
+
+                                    <!-- Progress Bar -->
+                                    <div className="mb-6">
+                                        <div className="flex justify-between text-sm text-gray-600 mb-2">
+                                            <span>Guesses Used</span>
+                                            <span>{guesses.length}/{difficulties[difficulty].maxGuesses}</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-3">
+                                            <div 
+                                                className={`progress-bar h-3 rounded-full ${
+                                                    getProgress() > 80 ? 'bg-red-500' :
+                                                    getProgress() > 60 ? 'bg-yellow-500' : 'bg-green-500'
+                                                }`}
+                                                style={{ width: `${getProgress()}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Input Area -->
+                                    <form onSubmit={handleSubmit} className="mb-6">
+                                        <div className="flex gap-4">
+                                            <input
+                                                ref={inputRef}
+                                                type="number"
+                                                value={currentGuess}
+                                                onChange={(e) => setCurrentGuess(e.target.value)}
+                                                placeholder={`Enter your guess (${difficulties[difficulty].min}-${difficulties[difficulty].max})`}
+                                                className="guess-input flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-lg text-center"
+                                                disabled={gameStatus !== 'playing'}
+                                                min={difficulties[difficulty].min}
+                                                max={difficulties[difficulty].max}
+                                            />
+                                            <button
+                                                type="submit"
+                                                className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold transition-colors shadow-lg"
+                                                disabled={gameStatus !== 'playing' && !currentGuess}
+                                            >
+                                                {gameStatus === 'playing' ? '🎯 Guess' : '🔄 New Game'}
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    <!-- Previous Guesses -->
+                                    {guesses.length > 0 && (
+                                        <div className="mb-6">
+                                            <h4 className="text-lg font-semibold text-gray-800 mb-3">Previous Guesses:</h4>
+                                            <div className="flex flex-wrap gap-2">
+                                                {guesses.map((guess, index) => (
+                                                    <span
+                                                        key={index}
+                                                        className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                                            guess < targetNumber ? 'bg-blue-100 text-blue-800' :
+                                                            guess > targetNumber ? 'bg-red-100 text-red-800' :
+                                                            'bg-green-100 text-green-800'
+                                                        }`}
+                                                    >
+                                                        {guess} {guess < targetNumber ? '↑' : guess > targetNumber ? '↓' : '✓'}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <!-- Game Controls -->
+                                    <div className="flex justify-center gap-4">
+                                        <button
+                                            onClick={startNewGame}
+                                            className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-lg"
+                                        >
+                                            🎮 New Game
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sidebar -->
+                            <div className="space-y-6">
+                                <!-- Game Settings -->
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">Game Settings</h3>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Difficulty
+                                            </label>
+                                            <select
+                                                value={difficulty}
+                                                onChange={(e) => {
+                                                    setDifficulty(e.target.value);
+                                                    startNewGame();
+                                                }}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="easy">😊 Easy (1-50, 10 guesses)</option>
+                                                <option value="medium">😐 Medium (1-100, 8 guesses)</option>
+                                                <option value="hard">😤 Hard (1-200, 6 guesses)</option>
+                                                <option value="expert">🔥 Expert (1-500, 5 guesses)</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                id="timerMode"
+                                                checked={isTimerMode}
+                                                onChange={(e) => {
+                                                    setIsTimerMode(e.target.checked);
+                                                    startNewGame();
+                                                }}
+                                                className="w-4 h-4 text-blue-600"
+                                            />
+                                            <label htmlFor="timerMode" className="text-sm font-medium text-gray-700">
+                                                ⏱️ Timer Mode
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Statistics -->
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-xl font-bold text-gray-800">Statistics</h3>
+                                        <button
+                                            onClick={resetStats}
+                                            className="text-red-500 hover:text-red-700 text-sm"
+                                        >
+                                            Reset
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Games Played:</span>
+                                            <span className="font-semibold">{stats.totalGames}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-green-600">Wins:</span>
+                                            <span className="font-semibold text-green-600">{stats.wins}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-blue-600">Win Rate:</span>
+                                            <span className="font-semibold text-blue-600">{getWinRate()}%</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-purple-600">Best Score:</span>
+                                            <span className="font-semibold text-purple-600">{stats.bestScore || 0}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-orange-600">Longest Streak:</span>
+                                            <span className="font-semibold text-orange-600">{stats.longestStreak}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Avg Guesses:</span>
+                                            <span className="font-semibold">
+                                                {stats.totalGames > 0 ? Math.round(stats.totalGuesses / stats.totalGames * 10) / 10 : 0}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- How to Play -->
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">How to Play</h3>
+                                    <div className="text-sm text-gray-600 space-y-2">
+                                        <p>• I'll think of a number within the range</p>
+                                        <p>• Guess the number using the hints</p>
+                                        <p>• 🔥 Burning hot = very close!</p>
+                                        <p>• ❄️ Cold = far away</p>
+                                        <p>• Fewer guesses = higher score!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<NumberGuessingGame />, document.getElementById('root'));
+    </script>
+</body>
+</html> 

@@ -21,7 +21,7 @@
         }
         .winning-cell {
             animation: pulse 1s infinite;
-            background: linear-gradient(45deg, #10b981, #34d399);
+            background: linear-gradient(45deg, #10b981, #34d399) !important;
         }
         @keyframes pulse {
             0%, 100% { transform: scale(1); }
@@ -41,7 +41,7 @@
         const TicTacToe = () => {
             const [board, setBoard] = useState(Array(9).fill(null));
             const [isPlayerTurn, setIsPlayerTurn] = useState(true);
-            const [gameStatus, setGameStatus] = useState('playing'); // playing, won, lost, draw
+            const [gameStatus, setGameStatus] = useState('playing');
             const [winner, setWinner] = useState(null);
             const [winningLine, setWinningLine] = useState([]);
             const [difficulty, setDifficulty] = useState('medium');
@@ -51,7 +51,7 @@
                 draws: 0,
                 gamesPlayed: 0
             });
-            const [gameMode, setGameMode] = useState('ai'); // ai or human
+            const [gameMode, setGameMode] = useState('ai');
 
             // Load stats from localStorage
             useEffect(() => {
@@ -106,8 +106,7 @@
                 if (isBoardFull(currentBoard)) return 0;
                 
                 if (difficulty === 'easy' && Math.random() < 0.3) {
-                    const availableMoves = getAvailableMoves(currentBoard);
-                    return Math.random() - 0.5; // Random for easy mode
+                    return Math.random() - 0.5;
                 }
 
                 if (isMaximizing) {
@@ -192,7 +191,6 @@
 
                 if (gameMode === 'ai') {
                     setIsPlayerTurn(false);
-                    // AI move after short delay
                     setTimeout(() => {
                         makeAIMove(newBoard);
                     }, 500);
@@ -204,6 +202,8 @@
             // AI makes move
             const makeAIMove = (currentBoard) => {
                 const aiMove = getBestMove(currentBoard);
+                if (aiMove === -1) return;
+                
                 const newBoard = [...currentBoard];
                 newBoard[aiMove] = 'O';
                 setBoard(newBoard);
@@ -255,31 +255,51 @@
                 });
             };
 
-            // Get cell content with styling
-            const getCellContent = (index) => {
-                const value = board[index];
-                if (!value) return '';
-                
-                const isWinning = winningLine.includes(index);
-                return (
-                    <span className={`${
-                        value === 'X' ? 'text-blue-600' : 'text-red-500'
-                    } ${isWinning ? 'text-white' : ''} font-bold`}>
-                        {value}
-                    </span>
-                );
-            };
-
             // Calculate win rate
             const getWinRate = () => {
                 if (stats.gamesPlayed === 0) return 0;
                 return Math.round((stats.wins / stats.gamesPlayed) * 100);
             };
 
+            // Render status message
+            const renderStatus = () => {
+                if (gameStatus === 'playing') {
+                    if (gameMode === 'ai') {
+                        return (
+                            <span className={isPlayerTurn ? 'text-blue-600' : 'text-red-500'}>
+                                {isPlayerTurn ? "Your Turn (X)" : "AI Thinking... (O)"}
+                            </span>
+                        );
+                    } else {
+                        return (
+                            <span className={isPlayerTurn ? 'text-blue-600' : 'text-red-500'}>
+                                {isPlayerTurn ? "Player 1 (X)" : "Player 2 (O)"}
+                            </span>
+                        );
+                    }
+                }
+                
+                if (gameStatus === 'won') {
+                    if (gameMode === 'ai') {
+                        return <span className="text-green-600">🎉 You Won!</span>;
+                    } else {
+                        return <span className="text-green-600">🎉 {winner} Wins!</span>;
+                    }
+                }
+                
+                if (gameStatus === 'lost') {
+                    return <span className="text-red-600">😔 AI Won!</span>;
+                }
+                
+                if (gameStatus === 'draw') {
+                    return <span className="text-yellow-600">🤝 It's a Draw!</span>;
+                }
+            };
+
             return (
                 <div className="min-h-screen bg-gradient-to-br from-purple-100 via-blue-100 to-indigo-100 py-8 px-4">
                     <div className="max-w-4xl mx-auto">
-                        {/* Header */}
+                        <!-- Header -->
                         <div className="text-center mb-8">
                             <h1 className="text-4xl font-bold text-gray-800 mb-2">
                                 ⭕ Tic Tac Toe
@@ -290,62 +310,47 @@
                         </div>
 
                         <div className="grid lg:grid-cols-3 gap-8">
-                            {/* Game Board */}
+                            <!-- Game Board -->
                             <div className="lg:col-span-2">
                                 <div className="bg-white rounded-2xl shadow-xl p-8">
-                                    {/* Game Status */}
+                                    <!-- Game Status -->
                                     <div className="text-center mb-6">
                                         <div className="text-2xl font-bold mb-2">
-                                            {gameStatus === 'playing' && gameMode === 'ai' && (
-                                                <span className={isPlayerTurn ? 'text-blue-600' : 'text-red-500'}>
-                                                    {isPlayerTurn ? "Your Turn (X)" : "AI Thinking... (O)"}
-                                                </span>
-                                            )}
-                                            {gameStatus === 'playing' && gameMode === 'human' && (
-                                                <span className={isPlayerTurn ? 'text-blue-600' : 'text-red-500'}>
-                                                    {isPlayerTurn ? "Player 1 (X)" : "Player 2 (O)"}
-                                                </span>
-                                            )}
-                                            {gameStatus === 'won' && gameMode === 'ai' && (
-                                                <span className="text-green-600">🎉 You Won!</span>
-                                            )}
-                                            {gameStatus === 'lost' && (
-                                                <span className="text-red-600">😔 AI Won!</span>
-                                            )}
-                                            {gameStatus === 'draw' && (
-                                                <span className="text-yellow-600">🤝 It's a Draw!</span>
-                                            )}
-                                            {gameStatus === 'won' && gameMode === 'human' && (
-                                                <span className="text-green-600">🎉 {winner} Wins!</span>
-                                            )}
+                                            {renderStatus()}
                                         </div>
                                     </div>
 
-                                    {/* Game Board */}
+                                    <!-- Game Board -->
                                     <div className="game-board p-4 rounded-xl mb-6">
                                         <div className="grid grid-cols-3 gap-2 max-w-sm mx-auto">
-                                            {board.map((cell, index) => (
-                                                <button
-                                                    key={index}
-                                                    onClick={() => handleCellClick(index)}
-                                                    className={`game-cell h-20 w-20 bg-white rounded-lg shadow-lg flex items-center justify-center border-2 transition-all ${
-                                                        winningLine.includes(index) 
-                                                            ? 'winning-cell border-green-400' 
-                                                            : 'border-gray-200 hover:border-blue-400'
-                                                    } ${
-                                                        cell || gameStatus !== 'playing' || (gameMode === 'ai' && !isPlayerTurn)
-                                                            ? 'cursor-not-allowed' 
-                                                            : 'cursor-pointer hover:bg-blue-50'
-                                                    }`}
-                                                    disabled={cell || gameStatus !== 'playing' || (gameMode === 'ai' && !isPlayerTurn)}
-                                                >
-                                                    {getCellContent(index)}
-                                                </button>
-                                            ))}
+                                            {board.map((cell, index) => {
+                                                const isWinning = winningLine.includes(index);
+                                                const cellClass = `game-cell h-20 w-20 bg-white rounded-lg shadow-lg flex items-center justify-center border-2 transition-all ${
+                                                    isWinning ? 'winning-cell border-green-400' : 'border-gray-200 hover:border-blue-400'
+                                                } ${
+                                                    cell || gameStatus !== 'playing' || (gameMode === 'ai' && !isPlayerTurn)
+                                                        ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-blue-50'
+                                                }`;
+                                                
+                                                return (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() => handleCellClick(index)}
+                                                        className={cellClass}
+                                                        disabled={cell || gameStatus !== 'playing' || (gameMode === 'ai' && !isPlayerTurn)}
+                                                    >
+                                                        <span className={`font-bold text-4xl ${
+                                                            cell === 'X' ? 'text-blue-600' : cell === 'O' ? 'text-red-500' : ''
+                                                        } ${isWinning ? 'text-white' : ''}`}>
+                                                            {cell || ''}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
 
-                                    {/* Game Controls */}
+                                    <!-- Game Controls -->
                                     <div className="flex justify-center gap-4">
                                         <button
                                             onClick={resetGame}
@@ -357,9 +362,9 @@
                                 </div>
                             </div>
 
-                            {/* Sidebar */}
+                            <!-- Sidebar -->
                             <div className="space-y-6">
-                                {/* Game Settings */}
+                                <!-- Game Settings -->
                                 <div className="bg-white rounded-xl shadow-lg p-6">
                                     <h3 className="text-xl font-bold text-gray-800 mb-4">Game Settings</h3>
                                     
@@ -403,7 +408,7 @@
                                     </div>
                                 </div>
 
-                                {/* Statistics */}
+                                <!-- Statistics -->
                                 {gameMode === 'ai' && (
                                     <div className="bg-white rounded-xl shadow-lg p-6">
                                         <div className="flex justify-between items-center mb-4">
@@ -442,7 +447,7 @@
                                     </div>
                                 )}
 
-                                {/* Game Rules */}
+                                <!-- Game Rules -->
                                 <div className="bg-white rounded-xl shadow-lg p-6">
                                     <h3 className="text-xl font-bold text-gray-800 mb-4">How to Play</h3>
                                     <div className="text-sm text-gray-600 space-y-2">

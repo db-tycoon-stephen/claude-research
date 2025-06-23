@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simon Says - Memory Challenge</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .simon-button {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+        .simon-button:hover {
+            transform: scale(1.05);
+        }
+        .simon-button:active {
+            transform: scale(0.95);
+        }
+        .simon-active {
+            transform: scale(1.1);
+            filter: brightness(1.5);
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.8);
+        }
+        .simon-red { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .simon-blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .simon-green { background: linear-gradient(135deg, #10b981, #059669); }
+        .simon-yellow { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .pulse-ring {
+            animation: pulse-ring 1.5s infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.3); opacity: 0; }
+        }
+        .level-up {
+            animation: level-up 0.8s ease;
+        }
+        @keyframes level-up {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const SimonSaysGame = () => {
+            const [sequence, setSequence] = useState([]);
+            const [playerSequence, setPlayerSequence] = useState([]);
+            const [isShowingSequence, setIsShowingSequence] = useState(false);
+            const [activeButton, setActiveButton] = useState(null);
+            const [level, setLevel] = useState(1);
+            const [score, setScore] = useState(0);
+            const [gameStatus, setGameStatus] = useState('ready'); // ready, playing, sequence, lost
+            const [speed, setSpeed] = useState('medium');
+            const [soundEnabled, setSoundEnabled] = useState(true);
+            const [stats, setStats] = useState({
+                gamesPlayed: 0,
+                highScore: 0,
+                totalLevels: 0,
+                longestSequence: 0
+            });
+
+            const audioContextRef = useRef(null);
+            const sequenceTimeoutRef = useRef(null);
+
+            // Game colors and their frequencies for sound
+            const colors = {
+                red: { id: 0, frequency: 261.63, className: 'simon-red' },
+                blue: { id: 1, frequency: 329.63, className: 'simon-blue' },
+                green: { id: 2, frequency: 392.00, className: 'simon-green' },
+                yellow: { id: 3, frequency: 523.25, className: 'simon-yellow' }
+            };
+
+            const colorKeys = Object.keys(colors);
+
+            // Speed settings
+            const speedSettings = {
+                slow: { display: 1000, gap: 300 },
+                medium: { display: 600, gap: 200 },
+                fast: { display: 400, gap: 100 },
+                expert: { display: 250, gap: 50 }
+            };
+
+            // Load stats from localStorage
+            useEffect(() => {
+                const savedStats = localStorage.getItem('simonSaysStats');
+                if (savedStats) {
+                    setStats(JSON.parse(savedStats));
+                }
+                
+                // Initialize audio context
+                if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
+                    audioContextRef.current = new (AudioContext || webkitAudioContext)();
+                }
+            }, []);
+
+            // Save stats to localStorage
+            useEffect(() => {
+                localStorage.setItem('simonSaysStats', JSON.stringify(stats));
+            }, [stats]);
+
+            // Play sound for a color
+            const playSound = (colorKey) => {
+                if (!soundEnabled || !audioContextRef.current) return;
+
+                try {
+                    const oscillator = audioContextRef.current.createOscillator();
+                    const gainNode = audioContextRef.current.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContextRef.current.destination);
+                    
+                    oscillator.frequency.setValueAtTime(colors[colorKey].frequency, audioContextRef.current.currentTime);
+                    oscillator.type = 'sine';
+                    
+                    gainNode.gain.setValueAtTime(0.3, audioContextRef.current.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + 0.3);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioContextRef.current.currentTime + 0.3);
+                } catch (error) {
+                    console.log('Audio not supported');
+                }
+            };
+
+            // Start new game
+            const startGame = () => {
+                const newSequence = [colorKeys[Math.floor(Math.random() * 4)]];
+                setSequence(newSequence);
+                setPlayerSequence([]);
+                setLevel(1);
+                setScore(0);
+                setGameStatus('sequence');
+                showSequence(newSequence);
+            };
+
+            // Show sequence to player
+            const showSequence = (currentSequence) => {
+                setIsShowingSequence(true);
+                setActiveButton(null);
+                
+                const { display, gap } = speedSettings[speed];
+                
+                currentSequence.forEach((color, index) => {
+                    sequenceTimeoutRef.current = setTimeout(() => {
+                        setActiveButton(color);
+                        playSound(color);
+                        
+                        setTimeout(() => {
+                            setActiveButton(null);
+                            
+                            // If this was the last color in sequence, allow player input
+                            if (index === currentSequence.length - 1) {
+                                setTimeout(() => {
+                                    setIsShowingSequence(false);
+                                    setGameStatus('playing');
+                                }, gap);
+                            }
+                        }, display);
+                    }, (display + gap) * index + 1000); // 1 second delay before starting
+                });
+            };
+
+            // Handle button click
+            const handleButtonClick = (colorKey) => {
+                if (gameStatus !== 'playing' || isShowingSequence) return;
+
+                // Resume audio context if needed
+                if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+                    audioContextRef.current.resume();
+                }
+
+                const newPlayerSequence = [...playerSequence, colorKey];
+                setPlayerSequence(newPlayerSequence);
+                
+                // Visual and audio feedback
+                setActiveButton(colorKey);
+                playSound(colorKey);
+                
+                setTimeout(() => {
+                    setActiveButton(null);
+                }, 150);
+
+                // Check if the player's input is correct
+                const currentIndex = newPlayerSequence.length - 1;
+                if (newPlayerSequence[currentIndex] !== sequence[currentIndex]) {
+                    // Wrong! Game over
+                    endGame();
+                    return;
+                }
+
+                // Check if player completed the sequence
+                if (newPlayerSequence.length === sequence.length) {
+                    // Correct sequence! Level up
+                    const newLevel = level + 1;
+                    const points = level * 10 + (speed === 'expert' ? 20 : speed === 'fast' ? 15 : speed === 'medium' ? 10 : 5);
+                    
+                    setLevel(newLevel);
+                    setScore(prevScore => prevScore + points);
+                    setPlayerSequence([]);
+                    
+                    // Add new color to sequence
+                    const newSequence = [...sequence, colorKeys[Math.floor(Math.random() * 4)]];
+                    setSequence(newSequence);
+                    
+                    // Show new sequence after a brief pause
+                    setTimeout(() => {
+                        setGameStatus('sequence');
+                        showSequence(newSequence);
+                    }, 1000);
+                }
+            };
+
+            // End game
+            const endGame = () => {
+                setGameStatus('lost');
+                
+                // Update stats
+                setStats(prevStats => ({
+                    gamesPlayed: prevStats.gamesPlayed + 1,
+                    highScore: Math.max(prevStats.highScore, score),
+                    totalLevels: prevStats.totalLevels + level,
+                    longestSequence: Math.max(prevStats.longestSequence, sequence.length)
+                }));
+
+                // Clear any pending timeouts
+                if (sequenceTimeoutRef.current) {
+                    clearTimeout(sequenceTimeoutRef.current);
+                }
+            };
+
+            // Reset stats
+            const resetStats = () => {
+                setStats({
+                    gamesPlayed: 0,
+                    highScore: 0,
+                    totalLevels: 0,
+                    longestSequence: 0
+                });
+            };
+
+            // Get average level
+            const getAverageLevel = () => {
+                if (stats.gamesPlayed === 0) return 0;
+                return Math.round(stats.totalLevels / stats.gamesPlayed * 10) / 10;
+            };
+
+            // Render game status
+            const renderStatus = () => {
+                switch (gameStatus) {
+                    case 'ready':
+                        return 'Press Start to begin!';
+                    case 'sequence':
+                        return 'Watch and memorize the sequence...';
+                    case 'playing':
+                        return 'Now repeat the sequence!';
+                    case 'lost':
+                        return `Game Over! You reached level ${level}`;
+                    default:
+                        return '';
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 py-8 px-4">
+                    <div className="max-w-4xl mx-auto">
+                        <!-- Header -->
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold text-gray-800 mb-2">
+                                🎵 Simon Says
+                            </h1>
+                            <p className="text-gray-600 text-lg">
+                                Test your memory with colors and sounds
+                            </p>
+                        </div>
+
+                        <!-- Game Stats -->
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-blue-600">{level}</div>
+                                <div className="text-sm text-gray-600">Level</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-green-600">{score}</div>
+                                <div className="text-sm text-gray-600">Score</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-purple-600">{sequence.length}</div>
+                                <div className="text-sm text-gray-600">Sequence</div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-lg text-center">
+                                <div className="text-2xl font-bold text-orange-600">{stats.highScore}</div>
+                                <div className="text-sm text-gray-600">Best Score</div>
+                            </div>
+                        </div>
+
+                        <div className="grid lg:grid-cols-3 gap-8">
+                            <!-- Game Board -->
+                            <div className="lg:col-span-2">
+                                <div className="bg-white rounded-2xl shadow-xl p-8">
+                                    <!-- Game Status -->
+                                    <div className="text-center mb-8">
+                                        <div className={`text-xl font-semibold p-4 rounded-lg ${
+                                            gameStatus === 'lost' ? 'bg-red-100 text-red-800' :
+                                            gameStatus === 'sequence' ? 'bg-blue-100 text-blue-800' :
+                                            gameStatus === 'playing' ? 'bg-green-100 text-green-800' :
+                                            'bg-gray-100 text-gray-800'
+                                        }`}>
+                                            {renderStatus()}
+                                        </div>
+                                    </div>
+
+                                    <!-- Simon Game Board -->
+                                    <div className="relative">
+                                        <!-- Center circle with pulse effect -->
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            {gameStatus === 'sequence' && (
+                                                <div className="w-24 h-24 rounded-full bg-white opacity-50 pulse-ring"></div>
+                                            )}
+                                            <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center z-10">
+                                                <span className="text-white font-bold text-sm">SIMON</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Color buttons in a 2x2 grid -->
+                                        <div className="grid grid-cols-2 gap-4 w-80 h-80 mx-auto">
+                                            {Object.entries(colors).map(([colorKey, colorData]) => (
+                                                <button
+                                                    key={colorKey}
+                                                    onClick={() => handleButtonClick(colorKey)}
+                                                    className={`simon-button ${colorData.className} rounded-lg ${
+                                                        activeButton === colorKey ? 'simon-active' : ''
+                                                    } ${
+                                                        gameStatus === 'playing' ? '' : 'cursor-not-allowed opacity-75'
+                                                    }`}
+                                                    disabled={gameStatus !== 'playing'}
+                                                    style={{
+                                                        clipPath: colorKey === 'red' ? 'polygon(0 0, 100% 0, 95% 100%, 0 95%)' :
+                                                                 colorKey === 'blue' ? 'polygon(0 0, 100% 5%, 100% 100%, 5% 100%)' :
+                                                                 colorKey === 'green' ? 'polygon(5% 0, 100% 0, 100% 95%, 0 100%)' :
+                                                                 'polygon(0 5%, 95% 0, 100% 100%, 0 100%)'
+                                                    }}
+                                                >
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <!-- Player Progress -->
+                                    <div className="mt-8">
+                                        <div className="flex justify-between text-sm text-gray-600 mb-2">
+                                            <span>Your Progress</span>
+                                            <span>{playerSequence.length}/{sequence.length}</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                            <div 
+                                                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                                style={{ 
+                                                    width: sequence.length > 0 ? `${(playerSequence.length / sequence.length) * 100}%` : '0%' 
+                                                }}
+                                            ></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Game Controls -->
+                                    <div className="flex justify-center gap-4 mt-8">
+                                        <button
+                                            onClick={startGame}
+                                            className="bg-indigo-500 hover:bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold transition-colors shadow-lg"
+                                            disabled={gameStatus === 'sequence' || isShowingSequence}
+                                        >
+                                            {gameStatus === 'ready' ? '🎮 Start Game' : '🔄 New Game'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sidebar -->
+                            <div className="space-y-6">
+                                <!-- Game Settings -->
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">Game Settings</h3>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Speed
+                                            </label>
+                                            <select
+                                                value={speed}
+                                                onChange={(e) => setSpeed(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                disabled={gameStatus === 'playing' || gameStatus === 'sequence'}
+                                            >
+                                                <option value="slow">🐌 Slow</option>
+                                                <option value="medium">😐 Medium</option>
+                                                <option value="fast">⚡ Fast</option>
+                                                <option value="expert">🔥 Expert</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                id="soundEnabled"
+                                                checked={soundEnabled}
+                                                onChange={(e) => setSoundEnabled(e.target.checked)}
+                                                className="w-4 h-4 text-indigo-600"
+                                            />
+                                            <label htmlFor="soundEnabled" className="text-sm font-medium text-gray-700">
+                                                🔊 Sound Effects
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Statistics -->
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-xl font-bold text-gray-800">Statistics</h3>
+                                        <button
+                                            onClick={resetStats}
+                                            className="text-red-500 hover:text-red-700 text-sm"
+                                        >
+                                            Reset
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Games Played:</span>
+                                            <span className="font-semibold">{stats.gamesPlayed}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-green-600">High Score:</span>
+                                            <span className="font-semibold text-green-600">{stats.highScore}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-blue-600">Longest Sequence:</span>
+                                            <span className="font-semibold text-blue-600">{stats.longestSequence}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-purple-600">Average Level:</span>
+                                            <span className="font-semibold text-purple-600">{getAverageLevel()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Color Legend -->
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">Colors</h3>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {Object.entries(colors).map(([colorKey, colorData]) => (
+                                            <div key={colorKey} className="flex items-center gap-2">
+                                                <div className={`w-6 h-6 rounded ${colorData.className}`}></div>
+                                                <span className="text-sm font-medium capitalize">{colorKey}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <!-- How to Play -->
+                                <div className="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4">How to Play</h3>
+                                    <div className="text-sm text-gray-600 space-y-2">
+                                        <p>• Watch the sequence of colors light up</p>
+                                        <p>• Click the colors in the same order</p>
+                                        <p>• Each level adds one more color</p>
+                                        <p>• One mistake ends the game!</p>
+                                        <p>• Higher speeds give more points</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<SimonSaysGame />, document.getElementById('root'));
+    </script>
+</body>
+</html> 
