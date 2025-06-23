@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recipe Calculator - Cooking Utilities</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .recipe-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .ingredient-animation {
+            animation: slideInLeft 0.3s ease-out;
+        }
+        @keyframes slideInLeft {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .scale-animation {
+            animation: scaleIn 0.2s ease-out;
+        }
+        @keyframes scaleIn {
+            from { transform: scale(0.95); }
+            to { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-orange-400 via-red-500 to-pink-600 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const RecipeCalculator = () => {
+            const [activeTab, setActiveTab] = useState('scale');
+            const [recipeServings, setRecipeServings] = useState(4);
+            const [targetServings, setTargetServings] = useState(6);
+            const [ingredients, setIngredients] = useState([]);
+            const [newIngredient, setNewIngredient] = useState({ name: '', amount: '', unit: 'cup' });
+            const [savedRecipes, setSavedRecipes] = useState([]);
+            const [recipeName, setRecipeName] = useState('');
+            const [conversionFrom, setConversionFrom] = useState({ amount: '', unit: 'cup' });
+            const [conversionTo, setConversionTo] = useState('ml');
+
+            // Conversion factors (to ml/g base units)
+            const conversions = {
+                // Volume (to ml)
+                'tsp': 4.92892,
+                'tbsp': 14.7868,
+                'cup': 236.588,
+                'pint': 473.176,
+                'quart': 946.353,
+                'liter': 1000,
+                'ml': 1,
+                'fl oz': 29.5735,
+                
+                // Weight (to grams) 
+                'g': 1,
+                'kg': 1000,
+                'oz': 28.3495,
+                'lb': 453.592,
+                'pound': 453.592,
+                
+                // Common cooking measurements
+                'pinch': 0.31, // approximately 1/16 tsp
+                'dash': 0.62,  // approximately 1/8 tsp
+                'drop': 0.05
+            };
+
+            // Unit categories
+            const volumeUnits = ['tsp', 'tbsp', 'cup', 'pint', 'quart', 'liter', 'ml', 'fl oz'];
+            const weightUnits = ['g', 'kg', 'oz', 'lb', 'pound'];
+            const miscUnits = ['pinch', 'dash', 'drop', 'whole', 'piece'];
+
+            // Sample recipes
+            const sampleRecipes = [
+                {
+                    id: 1,
+                    name: 'Chocolate Chip Cookies',
+                    servings: 24,
+                    ingredients: [
+                        { name: 'All-purpose flour', amount: 2.25, unit: 'cup' },
+                        { name: 'Baking soda', amount: 1, unit: 'tsp' },
+                        { name: 'Salt', amount: 1, unit: 'tsp' },
+                        { name: 'Butter', amount: 1, unit: 'cup' },
+                        { name: 'Sugar', amount: 0.75, unit: 'cup' },
+                        { name: 'Brown sugar', amount: 0.75, unit: 'cup' },
+                        { name: 'Eggs', amount: 2, unit: 'whole' },
+                        { name: 'Vanilla extract', amount: 2, unit: 'tsp' },
+                        { name: 'Chocolate chips', amount: 2, unit: 'cup' }
+                    ]
+                },
+                {
+                    id: 2,
+                    name: 'Classic Pancakes',
+                    servings: 4,
+                    ingredients: [
+                        { name: 'All-purpose flour', amount: 1, unit: 'cup' },
+                        { name: 'Sugar', amount: 2, unit: 'tbsp' },
+                        { name: 'Baking powder', amount: 2, unit: 'tsp' },
+                        { name: 'Salt', amount: 0.5, unit: 'tsp' },
+                        { name: 'Milk', amount: 1, unit: 'cup' },
+                        { name: 'Egg', amount: 1, unit: 'whole' },
+                        { name: 'Melted butter', amount: 2, unit: 'tbsp' }
+                    ]
+                }
+            ];
+
+            // Load saved recipes
+            useEffect(() => {
+                const saved = localStorage.getItem('savedRecipes');
+                if (saved) {
+                    setSavedRecipes(JSON.parse(saved));
+                } else {
+                    setSavedRecipes(sampleRecipes);
+                }
+            }, []);
+
+            // Save recipes to localStorage
+            useEffect(() => {
+                localStorage.setItem('savedRecipes', JSON.stringify(savedRecipes));
+            }, [savedRecipes]);
+
+            // Add ingredient
+            const addIngredient = () => {
+                if (newIngredient.name && newIngredient.amount) {
+                    const ingredient = {
+                        id: Date.now(),
+                        name: newIngredient.name,
+                        amount: parseFloat(newIngredient.amount),
+                        unit: newIngredient.unit
+                    };
+                    setIngredients([...ingredients, ingredient]);
+                    setNewIngredient({ name: '', amount: '', unit: 'cup' });
+                }
+            };
+
+            // Remove ingredient
+            const removeIngredient = (id) => {
+                setIngredients(ingredients.filter(ing => ing.id !== id));
+            };
+
+            // Scale ingredient
+            const scaleIngredient = (ingredient) => {
+                const scaleFactor = targetServings / recipeServings;
+                return {
+                    ...ingredient,
+                    amount: (ingredient.amount * scaleFactor).toFixed(2)
+                };
+            };
+
+            // Save recipe
+            const saveCurrentRecipe = () => {
+                if (!recipeName || ingredients.length === 0) {
+                    alert('Please enter a recipe name and add ingredients');
+                    return;
+                }
+
+                const recipe = {
+                    id: Date.now(),
+                    name: recipeName,
+                    servings: recipeServings,
+                    ingredients: ingredients.map(ing => ({ ...ing }))
+                };
+
+                setSavedRecipes([...savedRecipes, recipe]);
+                setRecipeName('');
+                setIngredients([]);
+                alert('Recipe saved successfully!');
+            };
+
+            // Load recipe
+            const loadRecipe = (recipe) => {
+                setRecipeName(recipe.name);
+                setRecipeServings(recipe.servings);
+                setIngredients(recipe.ingredients.map(ing => ({ ...ing, id: Date.now() + Math.random() })));
+                setActiveTab('scale');
+            };
+
+            // Delete recipe
+            const deleteRecipe = (id) => {
+                setSavedRecipes(savedRecipes.filter(recipe => recipe.id !== id));
+            };
+
+            // Convert units
+            const convertUnits = (amount, fromUnit, toUnit) => {
+                if (!amount || !conversions[fromUnit] || !conversions[toUnit]) return 0;
+                
+                // Check if units are compatible (same category)
+                const fromVolume = volumeUnits.includes(fromUnit);
+                const toVolume = volumeUnits.includes(toUnit);
+                const fromWeight = weightUnits.includes(fromUnit);
+                const toWeight = weightUnits.includes(toUnit);
+                
+                if ((fromVolume && !toVolume && !toWeight) || (fromWeight && !toWeight && !toVolume)) {
+                    return 'Incompatible units';
+                }
+                
+                // Convert through base unit
+                const baseAmount = amount * conversions[fromUnit];
+                const result = baseAmount / conversions[toUnit];
+                
+                return result.toFixed(4);
+            };
+
+            // Format amount display
+            const formatAmount = (amount) => {
+                const num = parseFloat(amount);
+                if (num === Math.floor(num)) return num.toString();
+                
+                // Convert to fraction for common cooking amounts
+                const fractions = {
+                    0.125: '1/8',
+                    0.25: '1/4',
+                    0.33: '1/3',
+                    0.5: '1/2',
+                    0.67: '2/3',
+                    0.75: '3/4'
+                };
+                
+                const whole = Math.floor(num);
+                const decimal = num - whole;
+                
+                for (const [dec, frac] of Object.entries(fractions)) {
+                    if (Math.abs(decimal - dec) < 0.02) {
+                        return whole > 0 ? `${whole} ${frac}` : frac;
+                    }
+                }
+                
+                return num.toFixed(2);
+            };
+
+            // Get nutrition estimate (simplified)
+            const getNutritionEstimate = (ingredients) => {
+                const nutritionData = {
+                    'flour': { calories: 455, carbs: 95, protein: 13, fat: 1.2 }, // per cup
+                    'sugar': { calories: 774, carbs: 200, protein: 0, fat: 0 }, // per cup
+                    'butter': { calories: 1628, carbs: 0, protein: 2, fat: 184 }, // per cup
+                    'egg': { calories: 70, carbs: 0.5, protein: 6, fat: 5 }, // per whole
+                    'milk': { calories: 150, carbs: 12, protein: 8, fat: 8 } // per cup
+                };
+
+                let totalCalories = 0;
+                let totalCarbs = 0;
+                let totalProtein = 0;
+                let totalFat = 0;
+
+                ingredients.forEach(ingredient => {
+                    const key = ingredient.name.toLowerCase();
+                    for (const [food, nutrition] of Object.entries(nutritionData)) {
+                        if (key.includes(food)) {
+                            const factor = ingredient.unit === 'cup' || ingredient.unit === 'whole' ? ingredient.amount : ingredient.amount / 16; // rough conversion
+                            totalCalories += nutrition.calories * factor;
+                            totalCarbs += nutrition.carbs * factor;
+                            totalProtein += nutrition.protein * factor;
+                            totalFat += nutrition.fat * factor;
+                            break;
+                        }
+                    }
+                });
+
+                return {
+                    calories: Math.round(totalCalories),
+                    carbs: Math.round(totalCarbs),
+                    protein: Math.round(totalProtein),
+                    fat: Math.round(totalFat)
+                };
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-orange-400 via-red-500 to-pink-600 py-8 px-4">
+                    <div className="max-w-6xl mx-auto">
+                        {/* Header */}
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">
+                                👨‍🍳 Recipe Calculator
+                            </h1>
+                            <p className="text-white/80 text-lg">
+                                Scale recipes, convert measurements, and plan your cooking
+                            </p>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="recipe-card rounded-xl shadow-2xl mb-8 overflow-hidden">
+                            <div className="border-b border-white/20">
+                                <div className="flex">
+                                    {['scale', 'convert', 'recipes', 'nutrition'].map((tab) => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setActiveTab(tab)}
+                                            className={`flex-1 py-4 px-6 font-medium transition-colors ${
+                                                activeTab === tab
+                                                    ? 'bg-orange-500 text-white shadow-lg'
+                                                    : 'text-white/70 hover:bg-white/10'
+                                            }`}
+                                        >
+                                            {tab === 'scale' && '📏 Scale Recipe'}
+                                            {tab === 'convert' && '🔄 Convert Units'}
+                                            {tab === 'recipes' && '📋 My Recipes'}
+                                            {tab === 'nutrition' && '🥗 Nutrition'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="p-8">
+                                {/* Scale Recipe Tab */}
+                                {activeTab === 'scale' && (
+                                    <div>
+                                        <div className="grid md:grid-cols-2 gap-8">
+                                            {/* Input Section */}
+                                            <div>
+                                                <h3 className="text-2xl font-bold text-white mb-6">Recipe Details</h3>
+                                                
+                                                {/* Recipe Name */}
+                                                <div className="mb-6">
+                                                    <label className="block text-white/80 font-medium mb-2">
+                                                        Recipe Name
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={recipeName}
+                                                        onChange={(e) => setRecipeName(e.target.value)}
+                                                        placeholder="Enter recipe name"
+                                                        className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+                                                    />
+                                                </div>
+
+                                                {/* Servings */}
+                                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                                    <div>
+                                                        <label className="block text-white/80 font-medium mb-2">
+                                                            Original Servings
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            value={recipeServings}
+                                                            onChange={(e) => setRecipeServings(parseInt(e.target.value) || 1)}
+                                                            className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                                            min="1"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-white/80 font-medium mb-2">
+                                                            Target Servings
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            value={targetServings}
+                                                            onChange={(e) => setTargetServings(parseInt(e.target.value) || 1)}
+                                                            className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                                            min="1"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Add Ingredient */}
+                                                <div className="space-y-4 mb-6">
+                                                    <h4 className="text-lg font-semibold text-white">Add Ingredients</h4>
+                                                    
+                                                    <div className="grid grid-cols-12 gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={newIngredient.name}
+                                                            onChange={(e) => setNewIngredient({...newIngredient, name: e.target.value})}
+                                                            placeholder="Ingredient name"
+                                                            className="col-span-6 px-3 py-2 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            value={newIngredient.amount}
+                                                            onChange={(e) => setNewIngredient({...newIngredient, amount: e.target.value})}
+                                                            placeholder="Amount"
+                                                            className="col-span-3 px-3 py-2 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm"
+                                                            step="0.01"
+                                                        />
+                                                        <select
+                                                            value={newIngredient.unit}
+                                                            onChange={(e) => setNewIngredient({...newIngredient, unit: e.target.value})}
+                                                            className="col-span-2 px-2 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm"
+                                                        >
+                                                            <optgroup label="Volume">
+                                                                {volumeUnits.map(unit => (
+                                                                    <option key={unit} value={unit} className="text-gray-800">{unit}</option>
+                                                                ))}
+                                                            </optgroup>
+                                                            <optgroup label="Weight">
+                                                                {weightUnits.map(unit => (
+                                                                    <option key={unit} value={unit} className="text-gray-800">{unit}</option>
+                                                                ))}
+                                                            </optgroup>
+                                                            <optgroup label="Misc">
+                                                                {miscUnits.map(unit => (
+                                                                    <option key={unit} value={unit} className="text-gray-800">{unit}</option>
+                                                                ))}
+                                                            </optgroup>
+                                                        </select>
+                                                        <button
+                                                            onClick={addIngredient}
+                                                            className="col-span-1 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors text-sm font-medium"
+                                                        >
+                                                            +
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Save Recipe */}
+                                                <button
+                                                    onClick={saveCurrentRecipe}
+                                                    className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold transition-colors shadow-lg"
+                                                >
+                                                    💾 Save Recipe
+                                                </button>
+                                            </div>
+
+                                            {/* Results Section */}
+                                            <div>
+                                                <h3 className="text-2xl font-bold text-white mb-6">
+                                                    Scaled Recipe
+                                                    {recipeServings !== targetServings && (
+                                                        <span className="text-lg font-normal text-orange-200 ml-2">
+                                                            (×{(targetServings / recipeServings).toFixed(2)})
+                                                        </span>
+                                                    )}
+                                                </h3>
+
+                                                {ingredients.length === 0 ? (
+                                                    <div className="text-center py-12 text-white/60">
+                                                        <div className="text-4xl mb-4">🥘</div>
+                                                        <p>Add ingredients to see scaled amounts</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        {ingredients.map((ingredient) => {
+                                                            const scaled = scaleIngredient(ingredient);
+                                                            return (
+                                                                <div
+                                                                    key={ingredient.id}
+                                                                    className="ingredient-animation flex items-center justify-between p-4 bg-white/20 rounded-lg border border-white/30"
+                                                                >
+                                                                    <div className="flex-1">
+                                                                        <div className="font-medium text-white">
+                                                                            {ingredient.name}
+                                                                        </div>
+                                                                        <div className="text-sm text-white/70">
+                                                                            Original: {formatAmount(ingredient.amount)} {ingredient.unit}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <div className="text-lg font-bold text-orange-200">
+                                                                            {formatAmount(scaled.amount)} {scaled.unit}
+                                                                        </div>
+                                                                        {ingredient.amount !== parseFloat(scaled.amount) && (
+                                                                            <div className="text-sm text-white/60">
+                                                                                {scaled.amount > ingredient.amount ? '+' : ''}{((parseFloat(scaled.amount) - ingredient.amount) / ingredient.amount * 100).toFixed(0)}%
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => removeIngredient(ingredient.id)}
+                                                                        className="ml-4 text-red-300 hover:text-red-200 transition-colors"
+                                                                    >
+                                                                        ✕
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Convert Units Tab */}
+                                {activeTab === 'convert' && (
+                                    <div className="max-w-2xl mx-auto">
+                                        <h3 className="text-2xl font-bold text-white mb-8 text-center">Unit Converter</h3>
+                                        
+                                        <div className="space-y-6">
+                                            {/* From */}
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-white/80 font-medium mb-2">Amount</label>
+                                                    <input
+                                                        type="number"
+                                                        value={conversionFrom.amount}
+                                                        onChange={(e) => setConversionFrom({...conversionFrom, amount: e.target.value})}
+                                                        placeholder="Enter amount"
+                                                        className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                                        step="0.01"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-white/80 font-medium mb-2">From Unit</label>
+                                                    <select
+                                                        value={conversionFrom.unit}
+                                                        onChange={(e) => setConversionFrom({...conversionFrom, unit: e.target.value})}
+                                                        className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                                    >
+                                                        <optgroup label="Volume">
+                                                            {volumeUnits.map(unit => (
+                                                                <option key={unit} value={unit} className="text-gray-800">{unit}</option>
+                                                            ))}
+                                                        </optgroup>
+                                                        <optgroup label="Weight">
+                                                            {weightUnits.map(unit => (
+                                                                <option key={unit} value={unit} className="text-gray-800">{unit}</option>
+                                                            ))}
+                                                        </optgroup>
+                                                        <optgroup label="Misc">
+                                                            {miscUnits.map(unit => (
+                                                                <option key={unit} value={unit} className="text-gray-800">{unit}</option>
+                                                            ))}
+                                                        </optgroup>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            {/* Conversion Arrow */}
+                                            <div className="text-center">
+                                                <div className="text-3xl text-white">⬇️</div>
+                                            </div>
+
+                                            {/* To */}
+                                            <div>
+                                                <label className="block text-white/80 font-medium mb-2">To Unit</label>
+                                                <select
+                                                    value={conversionTo}
+                                                    onChange={(e) => setConversionTo(e.target.value)}
+                                                    className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                                >
+                                                    <optgroup label="Volume">
+                                                        {volumeUnits.map(unit => (
+                                                            <option key={unit} value={unit} className="text-gray-800">{unit}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                    <optgroup label="Weight">
+                                                        {weightUnits.map(unit => (
+                                                            <option key={unit} value={unit} className="text-gray-800">{unit}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                    <optgroup label="Misc">
+                                                        {miscUnits.map(unit => (
+                                                            <option key={unit} value={unit} className="text-gray-800">{unit}</option>
+                                                        ))}
+                                                    </optgroup>
+                                                </select>
+                                            </div>
+
+                                            {/* Result */}
+                                            {conversionFrom.amount && (
+                                                <div className="scale-animation bg-white/30 rounded-xl p-6 text-center">
+                                                    <div className="text-3xl font-bold text-white mb-2">
+                                                        {convertUnits(parseFloat(conversionFrom.amount), conversionFrom.unit, conversionTo)} {conversionTo}
+                                                    </div>
+                                                    <div className="text-white/70">
+                                                        {conversionFrom.amount} {conversionFrom.unit} equals
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Quick Conversions */}
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8">
+                                                <div className="bg-white/20 rounded-lg p-3 text-center">
+                                                    <div className="text-sm text-white/70">1 cup</div>
+                                                    <div className="font-bold text-white">16 tbsp</div>
+                                                </div>
+                                                <div className="bg-white/20 rounded-lg p-3 text-center">
+                                                    <div className="text-sm text-white/70">1 cup</div>
+                                                    <div className="font-bold text-white">237 ml</div>
+                                                </div>
+                                                <div className="bg-white/20 rounded-lg p-3 text-center">
+                                                    <div className="text-sm text-white/70">1 lb</div>
+                                                    <div className="font-bold text-white">454 g</div>
+                                                </div>
+                                                <div className="bg-white/20 rounded-lg p-3 text-center">
+                                                    <div className="text-sm text-white/70">1 tbsp</div>
+                                                    <div className="font-bold text-white">3 tsp</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Recipes Tab */}
+                                {activeTab === 'recipes' && (
+                                    <div>
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h3 className="text-2xl font-bold text-white">My Recipe Collection</h3>
+                                            <div className="text-white/70">
+                                                {savedRecipes.length} recipes saved
+                                            </div>
+                                        </div>
+
+                                        {savedRecipes.length === 0 ? (
+                                            <div className="text-center py-12 text-white/60">
+                                                <div className="text-4xl mb-4">📝</div>
+                                                <p>No saved recipes yet</p>
+                                                <p className="text-sm">Create and save recipes in the Scale Recipe tab</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                {savedRecipes.map(recipe => (
+                                                    <div
+                                                        key={recipe.id}
+                                                        className="bg-white/20 rounded-xl p-6 border border-white/30 hover:bg-white/30 transition-colors"
+                                                    >
+                                                        <div className="flex justify-between items-start mb-4">
+                                                            <h4 className="text-xl font-bold text-white">{recipe.name}</h4>
+                                                            <button
+                                                                onClick={() => deleteRecipe(recipe.id)}
+                                                                className="text-red-300 hover:text-red-200 transition-colors"
+                                                            >
+                                                                🗑️
+                                                            </button>
+                                                        </div>
+                                                        
+                                                        <div className="text-white/70 mb-4">
+                                                            Serves {recipe.servings} • {recipe.ingredients.length} ingredients
+                                                        </div>
+                                                        
+                                                        <div className="space-y-1 mb-4 max-h-32 overflow-y-auto">
+                                                            {recipe.ingredients.slice(0, 5).map((ingredient, index) => (
+                                                                <div key={index} className="text-sm text-white/60">
+                                                                    • {formatAmount(ingredient.amount)} {ingredient.unit} {ingredient.name}
+                                                                </div>
+                                                            ))}
+                                                            {recipe.ingredients.length > 5 && (
+                                                                <div className="text-sm text-white/50">
+                                                                    ...and {recipe.ingredients.length - 5} more
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        <button
+                                                            onClick={() => loadRecipe(recipe)}
+                                                            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-medium transition-colors"
+                                                        >
+                                                            Load Recipe
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Nutrition Tab */}
+                                {activeTab === 'nutrition' && (
+                                    <div className="max-w-2xl mx-auto">
+                                        <h3 className="text-2xl font-bold text-white mb-8 text-center">Nutrition Estimate</h3>
+                                        
+                                        {ingredients.length === 0 ? (
+                                            <div className="text-center py-12 text-white/60">
+                                                <div className="text-4xl mb-4">🍎</div>
+                                                <p>Add ingredients to see nutrition information</p>
+                                                <p className="text-sm">Go to Scale Recipe tab to add ingredients</p>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                {(() => {
+                                                    const nutrition = getNutritionEstimate(ingredients);
+                                                    const perServing = {
+                                                        calories: Math.round(nutrition.calories / targetServings),
+                                                        carbs: Math.round(nutrition.carbs / targetServings),
+                                                        protein: Math.round(nutrition.protein / targetServings),
+                                                        fat: Math.round(nutrition.fat / targetServings)
+                                                    };
+                                                    
+                                                    return (
+                                                        <>
+                                                            {/* Per Serving */}
+                                                            <div className="bg-white/30 rounded-xl p-6 mb-6">
+                                                                <h4 className="text-xl font-bold text-white mb-4 text-center">
+                                                                    Per Serving ({targetServings} total servings)
+                                                                </h4>
+                                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                                    <div className="text-center">
+                                                                        <div className="text-2xl font-bold text-orange-200">{perServing.calories}</div>
+                                                                        <div className="text-white/70">Calories</div>
+                                                                    </div>
+                                                                    <div className="text-center">
+                                                                        <div className="text-2xl font-bold text-blue-200">{perServing.carbs}g</div>
+                                                                        <div className="text-white/70">Carbs</div>
+                                                                    </div>
+                                                                    <div className="text-center">
+                                                                        <div className="text-2xl font-bold text-green-200">{perServing.protein}g</div>
+                                                                        <div className="text-white/70">Protein</div>
+                                                                    </div>
+                                                                    <div className="text-center">
+                                                                        <div className="text-2xl font-bold text-yellow-200">{perServing.fat}g</div>
+                                                                        <div className="text-white/70">Fat</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Total Recipe */}
+                                                            <div className="bg-white/20 rounded-xl p-6">
+                                                                <h4 className="text-xl font-bold text-white mb-4 text-center">
+                                                                    Total Recipe
+                                                                </h4>
+                                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                                    <div className="text-center">
+                                                                        <div className="text-xl font-bold text-orange-200">{nutrition.calories}</div>
+                                                                        <div className="text-white/70">Calories</div>
+                                                                    </div>
+                                                                    <div className="text-center">
+                                                                        <div className="text-xl font-bold text-blue-200">{nutrition.carbs}g</div>
+                                                                        <div className="text-white/70">Carbs</div>
+                                                                    </div>
+                                                                    <div className="text-center">
+                                                                        <div className="text-xl font-bold text-green-200">{nutrition.protein}g</div>
+                                                                        <div className="text-white/70">Protein</div>
+                                                                    </div>
+                                                                    <div className="text-center">
+                                                                        <div className="text-xl font-bold text-yellow-200">{nutrition.fat}g</div>
+                                                                        <div className="text-white/70">Fat</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="mt-6 text-center text-white/60 text-sm">
+                                                                ⚠️ Nutrition estimates are approximate and based on common ingredients
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<RecipeCalculator />, document.getElementById('root'));
+    </script>
+</body>
+</html> 

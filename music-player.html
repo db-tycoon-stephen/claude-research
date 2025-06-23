@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Player - Audio Entertainment</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .music-card {
+            backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .rotate-record {
+            animation: rotate 3s linear infinite;
+        }
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .progress-bar {
+            background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1);
+            background-size: 200% 100%;
+            animation: gradient 3s ease infinite;
+        }
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const MusicPlayer = () => {
+            const [currentSong, setCurrentSong] = useState(null);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const [progress, setProgress] = useState(0);
+            const [volume, setVolume] = useState(70);
+            const [activeTab, setActiveTab] = useState('library');
+            const [playlists, setPlaylists] = useState([]);
+            const [favorites, setFavorites] = useState([]);
+
+            // Demo songs - In a real app, users would upload their own music
+            const demoSongs = [
+                {
+                    id: 1,
+                    title: 'Ambient Dreams',
+                    artist: 'Digital Composer',
+                    album: 'Synthetic Melodies',
+                    genre: 'Ambient',
+                    duration: '4:00',
+                    cover: '🎵'
+                },
+                {
+                    id: 2,
+                    title: 'Electric Nights',
+                    artist: 'Synth Master',
+                    album: 'Neon Beats',
+                    genre: 'Electronic',
+                    duration: '3:15',
+                    cover: '🎶'
+                },
+                {
+                    id: 3,
+                    title: 'Jazz Fusion',
+                    artist: 'Smooth Vibes',
+                    album: 'Modern Jazz',
+                    genre: 'Jazz',
+                    duration: '5:10',
+                    cover: '🎷'
+                },
+                {
+                    id: 4,
+                    title: 'Rock Anthem',
+                    artist: 'Digital Band',
+                    album: 'Power Chords',
+                    genre: 'Rock',
+                    duration: '3:45',
+                    cover: '🎸'
+                },
+                {
+                    id: 5,
+                    title: 'Classical Movement',
+                    artist: 'Orchestra AI',
+                    album: 'Timeless',
+                    genre: 'Classical',
+                    duration: '7:00',
+                    cover: '🎼'
+                },
+                {
+                    id: 6,
+                    title: 'Hip Hop Flow',
+                    artist: 'Beat Maker',
+                    album: 'Urban Sound',
+                    genre: 'Hip Hop',
+                    duration: '3:00',
+                    cover: '🎤'
+                }
+            ];
+
+            const [library] = useState(demoSongs);
+
+            // Load saved data
+            useEffect(() => {
+                const savedFavorites = localStorage.getItem('musicFavorites');
+                const savedPlaylists = localStorage.getItem('musicPlaylists');
+                const savedVolume = localStorage.getItem('musicVolume');
+
+                if (savedFavorites) setFavorites(JSON.parse(savedFavorites));
+                if (savedPlaylists) setPlaylists(JSON.parse(savedPlaylists));
+                if (savedVolume) setVolume(parseInt(savedVolume));
+            }, []);
+
+            // Save favorites and playlists
+            useEffect(() => {
+                localStorage.setItem('musicFavorites', JSON.stringify(favorites));
+            }, [favorites]);
+
+            useEffect(() => {
+                localStorage.setItem('musicPlaylists', JSON.stringify(playlists));
+            }, [playlists]);
+
+            useEffect(() => {
+                localStorage.setItem('musicVolume', volume.toString());
+            }, [volume]);
+
+            // Simulate progress update
+            useEffect(() => {
+                let interval;
+                if (isPlaying) {
+                    interval = setInterval(() => {
+                        setProgress(prev => {
+                            if (prev >= 100) {
+                                setIsPlaying(false);
+                                return 0;
+                            }
+                            return prev + 0.5;
+                        });
+                    }, 100);
+                }
+                return () => clearInterval(interval);
+            }, [isPlaying]);
+
+            const playSong = (song) => {
+                setCurrentSong(song);
+                setIsPlaying(true);
+                setProgress(0);
+            };
+
+            const togglePlayPause = () => {
+                if (!currentSong && library.length > 0) {
+                    setCurrentSong(library[0]);
+                    setIsPlaying(true);
+                } else {
+                    setIsPlaying(!isPlaying);
+                }
+            };
+
+            const nextSong = () => {
+                if (!currentSong) return;
+                const currentIndex = library.findIndex(song => song.id === currentSong.id);
+                const nextIndex = (currentIndex + 1) % library.length;
+                setCurrentSong(library[nextIndex]);
+                setProgress(0);
+            };
+
+            const previousSong = () => {
+                if (!currentSong) return;
+                const currentIndex = library.findIndex(song => song.id === currentSong.id);
+                const prevIndex = currentIndex > 0 ? currentIndex - 1 : library.length - 1;
+                setCurrentSong(library[prevIndex]);
+                setProgress(0);
+            };
+
+            const toggleFavorite = (song) => {
+                if (favorites.find(fav => fav.id === song.id)) {
+                    setFavorites(favorites.filter(fav => fav.id !== song.id));
+                } else {
+                    setFavorites([...favorites, song]);
+                }
+            };
+
+            const createPlaylist = () => {
+                const name = prompt('Enter playlist name:');
+                if (name) {
+                    const newPlaylist = {
+                        id: Date.now(),
+                        name,
+                        songs: [],
+                        created: new Date().toISOString()
+                    };
+                    setPlaylists([...playlists, newPlaylist]);
+                }
+            };
+
+            // Get unique genres
+            const genres = [...new Set(library.map(song => song.genre))];
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+                    <div className="flex flex-col lg:flex-row min-h-screen">
+                        {/* Sidebar */}
+                        <div className="lg:w-80 bg-black/30 p-6">
+                            <div className="text-center mb-8">
+                                <h1 className="text-3xl font-bold mb-2">🎵 Music Player</h1>
+                                <p className="text-gray-300">Your personal audio experience</p>
+                            </div>
+
+                            {/* Navigation */}
+                            <div className="space-y-2 mb-8">
+                                {['library', 'playlists', 'favorites', 'genres'].map((tab) => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
+                                            activeTab === tab
+                                                ? 'bg-purple-600 text-white'
+                                                : 'text-gray-300 hover:bg-white/10'
+                                        }`}
+                                    >
+                                        {tab === 'library' && '📚 Library'}
+                                        {tab === 'playlists' && '📋 Playlists'}
+                                        {tab === 'favorites' && '❤️ Favorites'}
+                                        {tab === 'genres' && '🎭 Genres'}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Volume Control */}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm text-gray-300 mb-2">Volume</label>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-lg">🔊</span>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            value={volume}
+                                            onChange={(e) => setVolume(parseInt(e.target.value))}
+                                            className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                                        />
+                                        <span className="text-sm text-gray-300 w-8">{volume}</span>
+                                    </div>
+                                </div>
+
+                                {/* Stats */}
+                                <div className="text-sm text-gray-400 space-y-1">
+                                    <div>📀 {library.length} Songs</div>
+                                    <div>❤️ {favorites.length} Favorites</div>
+                                    <div>📋 {playlists.length} Playlists</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Main Content */}
+                        <div className="flex-1 p-6">
+                            {/* Now Playing */}
+                            {currentSong && (
+                                <div className="music-card rounded-2xl p-8 mb-8">
+                                    <div className="flex flex-col lg:flex-row items-center gap-8">
+                                        {/* Album Art */}
+                                        <div className="relative">
+                                            <div className={`w-48 h-48 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-6xl ${
+                                                isPlaying ? 'rotate-record' : ''
+                                            }`}>
+                                                {currentSong.cover}
+                                            </div>
+                                        </div>
+
+                                        {/* Song Info & Controls */}
+                                        <div className="flex-1 text-center lg:text-left">
+                                            <h2 className="text-3xl font-bold mb-2">{currentSong.title}</h2>
+                                            <p className="text-xl text-gray-300 mb-1">{currentSong.artist}</p>
+                                            <p className="text-lg text-gray-400 mb-6">{currentSong.album}</p>
+
+                                            {/* Progress Bar */}
+                                            <div className="mb-6">
+                                                <div className="w-full h-2 bg-gray-700 rounded-full cursor-pointer mb-2">
+                                                    <div
+                                                        className="progress-bar h-full rounded-full"
+                                                        style={{ width: `${progress}%` }}
+                                                    ></div>
+                                                </div>
+                                                <div className="flex justify-between text-sm text-gray-400">
+                                                    <span>{Math.floor(progress * parseInt(currentSong.duration.split(':')[0]) * 60 / 100 / 60)}:{Math.floor((progress * parseInt(currentSong.duration.split(':')[0]) * 60 / 100) % 60).toString().padStart(2, '0')}</span>
+                                                    <span>{currentSong.duration}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Control Buttons */}
+                                            <div className="flex items-center justify-center gap-6">
+                                                <button
+                                                    onClick={() => toggleFavorite(currentSong)}
+                                                    className={`text-2xl transition-colors ${
+                                                        favorites.find(fav => fav.id === currentSong.id)
+                                                            ? 'text-red-500 hover:text-red-400'
+                                                            : 'text-gray-400 hover:text-red-500'
+                                                    }`}
+                                                >
+                                                    ❤️
+                                                </button>
+                                                
+                                                <button
+                                                    onClick={previousSong}
+                                                    className="text-3xl hover:text-purple-400 transition-colors"
+                                                >
+                                                    ⏮️
+                                                </button>
+                                                
+                                                <button
+                                                    onClick={togglePlayPause}
+                                                    className="text-5xl hover:text-purple-400 transition-colors"
+                                                >
+                                                    {isPlaying ? '⏸️' : '▶️'}
+                                                </button>
+                                                
+                                                <button
+                                                    onClick={nextSong}
+                                                    className="text-3xl hover:text-purple-400 transition-colors"
+                                                >
+                                                    ⏭️
+                                                </button>
+
+                                                <button className="text-2xl text-gray-400 hover:text-purple-400 transition-colors">
+                                                    🔀
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Content Tabs */}
+                            <div className="music-card rounded-2xl p-6">
+                                {/* Library Tab */}
+                                {activeTab === 'library' && (
+                                    <div>
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h3 className="text-2xl font-bold">Music Library</h3>
+                                            <div className="text-sm text-gray-400">
+                                                {library.length} songs
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            {library.map((song, index) => (
+                                                <div
+                                                    key={song.id}
+                                                    className={`flex items-center gap-4 p-4 rounded-lg hover:bg-white/10 transition-colors cursor-pointer ${
+                                                        currentSong?.id === song.id ? 'bg-purple-600/30' : ''
+                                                    }`}
+                                                    onClick={() => playSong(song)}
+                                                >
+                                                    <div className="w-8 text-center text-gray-400">
+                                                        {currentSong?.id === song.id && isPlaying ? '🎵' : index + 1}
+                                                    </div>
+                                                    <div className="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center text-xl">
+                                                        {song.cover}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="font-medium">{song.title}</div>
+                                                        <div className="text-sm text-gray-400">{song.artist}</div>
+                                                    </div>
+                                                    <div className="text-sm text-gray-400">{song.genre}</div>
+                                                    <div className="text-sm text-gray-400 w-12">
+                                                        {song.duration}
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleFavorite(song);
+                                                        }}
+                                                        className={`text-lg transition-colors ${
+                                                            favorites.find(fav => fav.id === song.id)
+                                                                ? 'text-red-500'
+                                                                : 'text-gray-500 hover:text-red-500'
+                                                        }`}
+                                                    >
+                                                        ❤️
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Playlists Tab */}
+                                {activeTab === 'playlists' && (
+                                    <div>
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h3 className="text-2xl font-bold">Playlists</h3>
+                                            <button
+                                                onClick={createPlaylist}
+                                                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors"
+                                            >
+                                                ➕ New Playlist
+                                            </button>
+                                        </div>
+
+                                        {playlists.length === 0 ? (
+                                            <div className="text-center py-12 text-gray-400">
+                                                <div className="text-4xl mb-4">🎵</div>
+                                                <p>No playlists yet</p>
+                                                <p className="text-sm">Create your first playlist to organize your music</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {playlists.map(playlist => (
+                                                    <div
+                                                        key={playlist.id}
+                                                        className="bg-white/10 rounded-lg p-4 hover:bg-white/20 transition-colors cursor-pointer"
+                                                    >
+                                                        <h4 className="font-semibold mb-2">{playlist.name}</h4>
+                                                        <p className="text-sm text-gray-400">
+                                                            {playlist.songs.length} songs
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            Created {new Date(playlist.created).toLocaleDateString()}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Favorites Tab */}
+                                {activeTab === 'favorites' && (
+                                    <div>
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h3 className="text-2xl font-bold">Favorite Songs</h3>
+                                            <div className="text-sm text-gray-400">
+                                                {favorites.length} songs
+                                            </div>
+                                        </div>
+
+                                        {favorites.length === 0 ? (
+                                            <div className="text-center py-12 text-gray-400">
+                                                <div className="text-4xl mb-4">❤️</div>
+                                                <p>No favorites yet</p>
+                                                <p className="text-sm">Click the heart icon on any song to add it to favorites</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {favorites.map((song, index) => (
+                                                    <div
+                                                        key={song.id}
+                                                        className={`flex items-center gap-4 p-4 rounded-lg hover:bg-white/10 transition-colors cursor-pointer ${
+                                                            currentSong?.id === song.id ? 'bg-purple-600/30' : ''
+                                                        }`}
+                                                        onClick={() => playSong(song)}
+                                                    >
+                                                        <div className="w-8 text-center text-gray-400">
+                                                            {currentSong?.id === song.id && isPlaying ? '🎵' : index + 1}
+                                                        </div>
+                                                        <div className="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center text-xl">
+                                                            {song.cover}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <div className="font-medium">{song.title}</div>
+                                                            <div className="text-sm text-gray-400">{song.artist}</div>
+                                                        </div>
+                                                        <div className="text-sm text-gray-400">{song.genre}</div>
+                                                        <div className="text-sm text-gray-400 w-12">
+                                                            {song.duration}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Genres Tab */}
+                                {activeTab === 'genres' && (
+                                    <div>
+                                        <h3 className="text-2xl font-bold mb-6">Browse by Genre</h3>
+                                        
+                                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {genres.map(genre => {
+                                                const genreSongs = library.filter(song => song.genre === genre);
+                                                return (
+                                                    <div key={genre} className="bg-white/10 rounded-lg p-6 hover:bg-white/20 transition-colors">
+                                                        <h4 className="text-xl font-semibold mb-3">{genre}</h4>
+                                                        <p className="text-gray-400 mb-4">{genreSongs.length} songs</p>
+                                                        <div className="space-y-2">
+                                                            {genreSongs.slice(0, 3).map(song => (
+                                                                <div
+                                                                    key={song.id}
+                                                                    className="flex items-center gap-3 p-2 hover:bg-white/10 rounded cursor-pointer"
+                                                                    onClick={() => playSong(song)}
+                                                                >
+                                                                    <div className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center text-sm">
+                                                                        {song.cover}
+                                                                    </div>
+                                                                    <div className="flex-1">
+                                                                        <div className="text-sm font-medium">{song.title}</div>
+                                                                        <div className="text-xs text-gray-400">{song.artist}</div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            {genreSongs.length > 3 && (
+                                                                <div className="text-xs text-gray-500 text-center pt-2">
+                                                                    +{genreSongs.length - 3} more songs
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<MusicPlayer />, document.getElementById('root'));
+    </script>
+</body>
+</html> 

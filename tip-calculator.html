@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tip Calculator - Smart Bill Splitting</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .amount-display {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+        }
+        .tip-button {
+            transition: all 0.2s ease;
+        }
+        .tip-button:hover {
+            transform: translateY(-2px);
+        }
+        .tip-button.active {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-green-50 to-emerald-100 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const TipCalculator = () => {
+            const [billAmount, setBillAmount] = useState('');
+            const [tipPercentage, setTipPercentage] = useState(18);
+            const [customTip, setCustomTip] = useState('');
+            const [splitBetween, setSplitBetween] = useState(1);
+            const [roundUp, setRoundUp] = useState(false);
+
+            // Preset tip percentages
+            const tipPresets = [10, 15, 18, 20, 25];
+
+            // Calculations
+            const bill = parseFloat(billAmount) || 0;
+            const tip = (tipPercentage / 100) * bill;
+            const totalAmount = bill + tip;
+            
+            // Round up logic
+            const finalTotal = roundUp ? Math.ceil(totalAmount) : totalAmount;
+            const adjustedTip = roundUp ? finalTotal - bill : tip;
+            
+            // Split calculations
+            const perPersonAmount = finalTotal / splitBetween;
+            const perPersonTip = adjustedTip / splitBetween;
+
+            // Handle custom tip percentage
+            const handleCustomTipChange = (value) => {
+                setCustomTip(value);
+                const customPercentage = parseFloat(value);
+                if (!isNaN(customPercentage) && customPercentage >= 0) {
+                    setTipPercentage(customPercentage);
+                }
+            };
+
+            // Format currency
+            const formatCurrency = (amount) => {
+                return new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD'
+                }).format(amount);
+            };
+
+            // Reset all values
+            const reset = () => {
+                setBillAmount('');
+                setTipPercentage(18);
+                setCustomTip('');
+                setSplitBetween(1);
+                setRoundUp(false);
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-8 px-4">
+                    <div className="max-w-lg mx-auto">
+                        {/* Header */}
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold text-green-700 mb-2">
+                                💰 Tip Calculator
+                            </h1>
+                            <p className="text-green-600 text-lg">
+                                Smart bill splitting made simple
+                            </p>
+                        </div>
+
+                        {/* Bill Amount Input */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Bill Amount
+                            </label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-xl">$</span>
+                                <input
+                                    type="number"
+                                    value={billAmount}
+                                    onChange={(e) => setBillAmount(e.target.value)}
+                                    placeholder="0.00"
+                                    className="w-full pl-8 pr-4 py-4 text-2xl font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent amount-display"
+                                    step="0.01"
+                                    min="0"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Tip Percentage */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-4">
+                                Tip Percentage
+                            </label>
+                            
+                            {/* Preset Buttons */}
+                            <div className="grid grid-cols-5 gap-2 mb-4">
+                                {tipPresets.map((preset) => (
+                                    <button
+                                        key={preset}
+                                        onClick={() => {
+                                            setTipPercentage(preset);
+                                            setCustomTip('');
+                                        }}
+                                        className={`tip-button py-3 px-2 rounded-lg font-semibold transition-all ${
+                                            tipPercentage === preset && !customTip
+                                                ? 'bg-green-500 text-white active'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {preset}%
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Custom Tip Input */}
+                            <div className="relative">
+                                <input
+                                    type="number"
+                                    value={customTip}
+                                    onChange={(e) => handleCustomTipChange(e.target.value)}
+                                    placeholder="Custom %"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                    step="0.1"
+                                    min="0"
+                                    max="100"
+                                />
+                                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                            </div>
+                        </div>
+
+                        {/* Split Options */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-4">
+                                Split Between People
+                            </label>
+                            
+                            <div className="flex items-center space-x-4">
+                                <button
+                                    onClick={() => setSplitBetween(Math.max(1, splitBetween - 1))}
+                                    className="w-12 h-12 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-xl font-bold transition-colors"
+                                    disabled={splitBetween <= 1}
+                                >
+                                    −
+                                </button>
+                                
+                                <div className="flex-1 text-center">
+                                    <div className="text-3xl font-bold text-gray-800">{splitBetween}</div>
+                                    <div className="text-sm text-gray-500">
+                                        {splitBetween === 1 ? 'person' : 'people'}
+                                    </div>
+                                </div>
+                                
+                                <button
+                                    onClick={() => setSplitBetween(splitBetween + 1)}
+                                    className="w-12 h-12 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-xl font-bold transition-colors"
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Round Up Option */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className="font-medium text-gray-800">Round Up Total</div>
+                                    <div className="text-sm text-gray-500">Round to nearest dollar</div>
+                                </div>
+                                <button
+                                    onClick={() => setRoundUp(!roundUp)}
+                                    className={`relative w-12 h-6 rounded-full transition-colors ${
+                                        roundUp ? 'bg-green-500' : 'bg-gray-300'
+                                    }`}
+                                >
+                                    <div className={`absolute w-5 h-5 bg-white rounded-full top-0.5 transition-transform ${
+                                        roundUp ? 'translate-x-6' : 'translate-x-0.5'
+                                    }`}></div>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Results */}
+                        {bill > 0 && (
+                            <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-4">Calculation Results</h3>
+                                
+                                <div className="space-y-4">
+                                    {/* Individual Totals */}
+                                    <div className="bg-gray-50 rounded-lg p-4">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-gray-600">Subtotal:</span>
+                                            <span className="font-semibold amount-display">{formatCurrency(bill)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-gray-600">
+                                                Tip ({tipPercentage.toFixed(1)}%):
+                                            </span>
+                                            <span className="font-semibold amount-display text-green-600">
+                                                {formatCurrency(adjustedTip)}
+                                            </span>
+                                        </div>
+                                        <div className="border-t border-gray-300 pt-2">
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-semibold text-gray-800">Total:</span>
+                                                <span className="font-bold text-xl amount-display text-green-700">
+                                                    {formatCurrency(finalTotal)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Per Person */}
+                                    {splitBetween > 1 && (
+                                        <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                                            <div className="text-center mb-3">
+                                                <div className="text-sm font-medium text-green-700">Per Person</div>
+                                            </div>
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-green-600">Amount per person:</span>
+                                                <span className="font-bold text-lg amount-display text-green-700">
+                                                    {formatCurrency(perPersonAmount)}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-green-600">Tip per person:</span>
+                                                <span className="font-semibold amount-display text-green-600">
+                                                    {formatCurrency(perPersonTip)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Reset Button */}
+                        <div className="text-center mb-8">
+                            <button
+                                onClick={reset}
+                                className="bg-gray-500 hover:bg-gray-600 text-white px-8 py-3 rounded-lg font-medium transition-colors shadow-lg"
+                            >
+                                Reset Calculator
+                            </button>
+                        </div>
+
+                        {/* Tips Section */}
+                        <div className="bg-white rounded-xl shadow-lg p-6">
+                            <h3 className="text-lg font-semibold text-gray-800 mb-4">💡 Tipping Guide</h3>
+                            <div className="space-y-3 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Restaurant (Good Service):</span>
+                                    <span className="font-medium">18-20%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Restaurant (Excellent):</span>
+                                    <span className="font-medium">20-25%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Delivery:</span>
+                                    <span className="font-medium">15-20%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Taxi/Rideshare:</span>
+                                    <span className="font-medium">10-15%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Coffee Shop:</span>
+                                    <span className="font-medium">10-15%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="text-center mt-8">
+                            <p className="text-sm text-gray-500">
+                                Built with React • Fair Tipping Made Easy
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<TipCalculator />, document.getElementById('root'));
+    </script>
+</body>
+</html> 
