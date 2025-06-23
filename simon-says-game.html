@@ -275,7 +275,7 @@
             return (
                 <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100 py-8 px-4">
                     <div className="max-w-4xl mx-auto">
-                        <!-- Header -->
+                        {/* Header */}
                         <div className="text-center mb-8">
                             <h1 className="text-4xl font-bold text-gray-800 mb-2">
                                 🎵 Simon Says
@@ -285,7 +285,7 @@
                             </p>
                         </div>
 
-                        <!-- Game Stats -->
+                        {/* Game Stats */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                             <div className="bg-white rounded-xl p-4 shadow-lg text-center">
                                 <div className="text-2xl font-bold text-blue-600">{level}</div>
@@ -306,10 +306,10 @@
                         </div>
 
                         <div className="grid lg:grid-cols-3 gap-8">
-                            <!-- Game Board -->
+                            {/* Game Board */}
                             <div className="lg:col-span-2">
                                 <div className="bg-white rounded-2xl shadow-xl p-8">
-                                    <!-- Game Status -->
+                                    {/* Game Status */}
                                     <div className="text-center mb-8">
                                         <div className={`text-xl font-semibold p-4 rounded-lg ${
                                             gameStatus === 'lost' ? 'bg-red-100 text-red-800' :
@@ -321,9 +321,9 @@
                                         </div>
                                     </div>
 
-                                    <!-- Simon Game Board -->
+                                    {/* Simon Game Board */}
                                     <div className="relative">
-                                        <!-- Center circle with pulse effect -->
+                                        {/* Center circle with pulse effect */}
                                         <div className="absolute inset-0 flex items-center justify-center">
                                             {gameStatus === 'sequence' && (
                                                 <div className="w-24 h-24 rounded-full bg-white opacity-50 pulse-ring"></div>
@@ -333,7 +333,7 @@
                                             </div>
                                         </div>
 
-                                        <!-- Color buttons in a 2x2 grid -->
+                                        {/* Color buttons in a 2x2 grid */}
                                         <div className="grid grid-cols-2 gap-4 w-80 h-80 mx-auto">
                                             {Object.entries(colors).map(([colorKey, colorData]) => (
                                                 <button
@@ -357,7 +357,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Player Progress -->
+                                    {/* Player Progress */}
                                     <div className="mt-8">
                                         <div className="flex justify-between text-sm text-gray-600 mb-2">
                                             <span>Your Progress</span>
@@ -373,7 +373,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Game Controls -->
+                                    {/* Game Controls */}
                                     <div className="flex justify-center gap-4 mt-8">
                                         <button
                                             onClick={startGame}
@@ -386,9 +386,9 @@
                                 </div>
                             </div>
 
-                            <!-- Sidebar -->
+                            {/* Sidebar */}
                             <div className="space-y-6">
-                                <!-- Game Settings -->
+                                {/* Game Settings */}
                                 <div className="bg-white rounded-xl shadow-lg p-6">
                                     <h3 className="text-xl font-bold text-gray-800 mb-4">Game Settings</h3>
                                     
@@ -425,7 +425,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Statistics -->
+                                {/* Statistics */}
                                 <div className="bg-white rounded-xl shadow-lg p-6">
                                     <div className="flex justify-between items-center mb-4">
                                         <h3 className="text-xl font-bold text-gray-800">Statistics</h3>
@@ -457,7 +457,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Color Legend -->
+                                {/* Color Legend */}
                                 <div className="bg-white rounded-xl shadow-lg p-6">
                                     <h3 className="text-xl font-bold text-gray-800 mb-4">Colors</h3>
                                     <div className="grid grid-cols-2 gap-3">
@@ -470,7 +470,7 @@
                                     </div>
                                 </div>
 
-                                <!-- How to Play -->
+                                {/* How to Play */}
                                 <div className="bg-white rounded-xl shadow-lg p-6">
                                     <h3 className="text-xl font-bold text-gray-800 mb-4">How to Play</h3>
                                     <div className="text-sm text-gray-600 space-y-2">

@@ -253,7 +253,7 @@
             return (
                 <div className="min-h-screen bg-gradient-to-br from-green-100 via-blue-100 to-purple-100 py-8 px-4">
                     <div className="max-w-4xl mx-auto">
-                        <!-- Header -->
+                        {/* Header */}
                         <div className="text-center mb-8">
                             <h1 className="text-4xl font-bold text-gray-800 mb-2">
                                 🎯 Number Guessing Game
@@ -263,7 +263,7 @@
                             </p>
                         </div>
 
-                        <!-- Game Stats -->
+                        {/* Game Stats */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                             <div className="bg-white rounded-xl p-4 shadow-lg text-center">
                                 <div className="text-2xl font-bold text-blue-600">{score}</div>
@@ -286,10 +286,10 @@
                         </div>
 
                         <div className="grid lg:grid-cols-3 gap-8">
-                            <!-- Game Area -->
+                            {/* Game Area */}
                             <div className="lg:col-span-2">
                                 <div className="bg-white rounded-2xl shadow-xl p-8">
-                                    <!-- Game Status -->
+                                    {/* Game Status */}
                                     <div className="text-center mb-6">
                                         <div className={`text-xl mb-4 p-4 rounded-lg ${
                                             gameStatus === 'won' ? 'bg-green-100 text-green-800 victory-animation' :
@@ -300,7 +300,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Progress Bar -->
+                                    {/* Progress Bar */}
                                     <div className="mb-6">
                                         <div className="flex justify-between text-sm text-gray-600 mb-2">
                                             <span>Guesses Used</span>
@@ -317,7 +317,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Input Area -->
+                                    {/* Input Area */}
                                     <form onSubmit={handleSubmit} className="mb-6">
                                         <div className="flex gap-4">
                                             <input
@@ -341,7 +341,7 @@
                                         </div>
                                     </form>
 
-                                    <!-- Previous Guesses -->
+                                    {/* Previous Guesses */}
                                     {guesses.length > 0 && (
                                         <div className="mb-6">
                                             <h4 className="text-lg font-semibold text-gray-800 mb-3">Previous Guesses:</h4>
@@ -362,7 +362,7 @@
                                         </div>
                                     )}
 
-                                    <!-- Game Controls -->
+                                    {/* Game Controls */}
                                     <div className="flex justify-center gap-4">
                                         <button
                                             onClick={startNewGame}
@@ -374,9 +374,9 @@
                                 </div>
                             </div>
 
-                            <!-- Sidebar -->
+                            {/* Sidebar */}
                             <div className="space-y-6">
-                                <!-- Game Settings -->
+                                {/* Game Settings */}
                                 <div className="bg-white rounded-xl shadow-lg p-6">
                                     <h3 className="text-xl font-bold text-gray-800 mb-4">Game Settings</h3>
                                     
@@ -418,7 +418,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Statistics -->
+                                {/* Statistics */}
                                 <div className="bg-white rounded-xl shadow-lg p-6">
                                     <div className="flex justify-between items-center mb-4">
                                         <h3 className="text-xl font-bold text-gray-800">Statistics</h3>
@@ -460,7 +460,7 @@
                                     </div>
                                 </div>
 
-                                <!-- How to Play -->
+                                {/* How to Play */}
                                 <div className="bg-white rounded-xl shadow-lg p-6">
                                     <h3 className="text-xl font-bold text-gray-800 mb-4">How to Play</h3>
                                     <div className="text-sm text-gray-600 space-y-2">
